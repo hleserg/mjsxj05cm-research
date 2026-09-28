@@ -15,6 +15,9 @@ sed -e '/^watchdog:/,/^[a-z]/ s/enabled: true/enabled: false/' \
     -e '/^audio:/,/^[a-z]/ { s/enabled: false/enabled: true/; s/outputEnabled: false/outputEnabled: true/; s/  volume: 30/  volume: 100/; s/outputVolume: 30/outputVolume: 60/ }' /etc/majestic.yaml > /tmp/m.yaml
 grep -A2 '^watchdog:' /tmp/m.yaml
 mountpoint -q /etc/majestic.yaml || mount --bind /tmp/m.yaml /etc/majestic.yaml
+# 28.09 18:40: majestic непрерывно (~10/с) печатает в консоль "[MI ERR] … vpe0-out0-1 … mma fail" (3-й буфер 0x2fd000 не влезает
+# в mma_heap) — на UART 115200 это ~2 КБ/с и load ~9. Консоль только до KERN_ERR (уровень 4 режет флуд: замер +100 Б/с); EMERG/panic видны.
+echo "4 4 1 7" > /proc/sys/kernel/printk
 /etc/init.d/S95majestic start
 sleep 4; ps | grep -v "sh -c" | grep "[m]ajestic"; free | head -2; cat /sys/class/watchdog/watchdog0/state 2>/dev/null
 echo CAM_UP_done
