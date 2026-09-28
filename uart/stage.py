@@ -118,6 +118,8 @@ def main(stage):
         d = port.read(4096)
         if d:
             log.write(d); log.flush(); buf += d
+            if len(buf) > 1 << 20:   # 28.09: UART-флуд MI ERR ~2 КБ/с — без потолка поиск по buf становится O(n²)
+                buf = buf[-65536:]
             sys.stdout.write(d.decode("latin-1")); sys.stdout.flush()
 
     wait = int(os.environ.get("STAGE_WAIT", "300"))
@@ -129,7 +131,7 @@ def main(stage):
         end, prompt = time.time() + wait, None
         while time.time() < end and not prompt:
             port.write(b"\r"); rx()
-            prompt = prompt_of(buf)
+            prompt = prompt_of(buf[-8192:])
         if not prompt:
             sys.exit("\nU-Boot не остановился")
         time.sleep(0.3); rx()
@@ -142,18 +144,17 @@ def main(stage):
                 if c.startswith("bootm") and b"Starting kernel" in buf[mark:]:
                     break
         print(f"\n--- команды этапа {stage} посланы; консоль: echo CMD > {FIFO} ; лог {out}", flush=True)
-        boot = len(buf)
+        buf = b""
         hooked = False   # постбут-хук: init4.sh напечатал SSH_READY_ip → uart/postboot.sh (autorun.sh с p1 карты по SSH), один раз
         while True:
             rx()
-            if not hooked and b"SSH_READY_ip" in buf[boot:]:
+            if not hooked and b"SSH_READY_ip" in buf:
                 hooked = True
                 import subprocess
                 subprocess.Popen([str(HERE / "postboot.sh")], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 print("\n--- SSH_READY_ip: запущен postboot.sh (лог uart/postboot.log)", flush=True)
-            if RESET.search(buf[boot:]):
+            if RESET.search(buf[-8192:]):
                 print("\n--- IPL после загрузки: камера сбросилась, снова ловлю U-Boot", flush=True)
-                buf = buf[-4096:]
                 break
             try:
                 line = os.read(fd, 4096)
