@@ -18,7 +18,7 @@
 
 ## Функции железа
 
-- [~] Видео MAIN и SUB локально, штатным энкодером (RTSP, ONVIF или документированный API). 28.09: MAIN `rtsp://root:…@192.168.1.53/stream=0` h264 1920×1080 ~20 fps + `/image.jpg` (majestic, штатные mi_venc); SUB (video1) выключен — MMA headroom ноль, включать после `mma_heap sz=0x1800000` (DECISIONS.md 18:45, 20:35).
+- [~] Видео MAIN и SUB локально, штатным энкодером (RTSP, ONVIF или документированный API). 28.09: MAIN `rtsp://root:…@192.168.1.53/stream=0` h264 1920×1080 ~20 fps + `/image.jpg` (majestic, штатные mi_venc); ONVIF включён и отвечает (20:43: POST GetSystemDateAndTime на `http://192.168.1.53/onvif/device_service` → HTTP 200, SOAP-ответ tds/trt/tptz/tev); SUB (video1) выключен — MMA headroom ноль, включать после `mma_heap sz=0x1800000` (DECISIONS.md 18:45, 20:35).
 - [~] PTZ: pan и tilt полностью, с концевой калибровкой. 28.09: оба мотора крутятся на OpenIPC (`p4/ptz.sh`, GPIO-полушаг 44..47, select 80/16; DECISIONS.md 16:25/16:30). Нет: соответствие +/− ↔ сторонам (моторы не в стойке), концевая калибровка.
 - [x] IR‑cut, ночной режим, ИК‑подсветка управляются. 28.09: IR-cut GPIO 78/79 (кадры `ir-*.jpg`, DECISIONS.md 12:58), лампа pwm0 duty 100 — светится (фото владельца, DECISIONS.md 16:05). Ночной режим как автоматика majestic — не настраивался.
 - [x] Микрофон; динамик — желательно. 28.09: микрофон — `/audio.pcm`, три хлопка владельца = пики до клиппинга (DECISIONS.md 16:55); динамик — GPIO 15 + `/play_audio` audio/L16, «Да, гудит» (DECISIONS.md 16:30).
