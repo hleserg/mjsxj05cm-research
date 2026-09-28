@@ -594,3 +594,13 @@ U-Boot — перед каждой загрузкой с карты переза
 (3) tools/p1-put.sh — по одному файлу на SSH-вызов (команда ~8 КБ роняла dropbear).
 
 ## 29.09 00:30 — владелец: «Да, пиши env v2» (AskUserQuestion). Запуск nor-env-write — владелец через `!`, дальше по STOP-env.md.
+
+## 29.09 00:31 — env v2 ЗАПИСАН (все гейты: 2aa0dde8 → 4096 bytes read → Erased/Written OK → 2aa0dde8 → were the same, лог `uart/stage-nor-env-write-20260929-003030.log`), но тёплый `reset` снова упал в сток: `** No partition table - mmc 0 **` → `Wrong Image Format` → `norboot`. Камера на стоке, кирпича нет.
+
+## 29.09 00:45 — причина отказа v1/v2 и план v3 (stage.py 761955d, STOP-env.md v3)
+- Стоковый U-Boot **до bootcmd** сам инициализирует карту (проверка `tf_update.img`: `mmc_core_init` LS→HS, «read file tf_update.img error»). Любая повторная init сразу за ней (`mmc dev 0` / `mmc rescan`, обе force) вернула мусор в блоке 0 в 3 автозагрузках из 5 → «No partition table».
+- Перехват Enter'ом обрывает автозагрузку **до** проверки tf_update (лог `stage-2a-p4-20260928-022316.log` 57–113: нет «read file start») → в приглашении карта не инициализирована → репетиции v1/v2 автозагрузку не моделировали. Утверждение «`mmc dev 0` уже делает полную init + чтение MBR» (research/uboot-env-notes.md:54, старый комментарий stage.py) — про чистую карту, к автозагрузке не относится.
+- `fatload` на инициализированной карте init не повторяет (`has_init`; после `mmc rescan` третьего `mmc_core_init` в логах нет).
+- **v3:** `sdboot` = `mw.l 0x22000000 0 4; fatload mmc 0:1 0x22000000 uImage.ssc325; setenv bootargs ${sdargs}; bootm 0x22000000` (без mmc dev/rescan); crc32 `18901e20`, sha256 eda6b62e…; гейты stage.py по умолчанию 2aa0dde8 → 18901e20.
+- Репетиции теперь верные: `2a-p4-env3` (сначала `fatload tf_update.img` = стоковая проверка, затем SDBOOT построчно; файла v3 не требует) и `2a-p4-env` (fatload env-new.bin = init #1 → import → run sdboot). Критерий: ровно один `mmc_core_init` за перехват.
+- Третья запись NOR — только после репетиции, нового STOP v3 и явного «да». Если и v3 не грузит — загрузка с помощью Pi или дизассемблер (`has_init`).
