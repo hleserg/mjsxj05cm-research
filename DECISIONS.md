@@ -592,3 +592,5 @@ U-Boot — перед каждой загрузкой с карты переза
 - cam-up.sh с p1 применился: majestic.yaml `onvif.username: admin`, пароль из onvif-password.txt; `GetDeviceInformation` с digest admin → OpenIPC/IP Camera, без логина → 401. video1 и motionDetect enabled, mma fail 0.
 Решения: (1) STOP v2 (`uboot/STOP-env.md`) остаётся в силе, запрос «да» владельцу; (2) stage.py: служебные строки (`--- ABORT/#stage/#passive`) теперь дублируются в лог (`say()`), т.к. владелец запускает с `> /dev/null`;
 (3) tools/p1-put.sh — по одному файлу на SSH-вызов (команда ~8 КБ роняла dropbear).
+
+## 29.09 00:30 — владелец: «Да, пиши env v2» (AskUserQuestion). Запуск nor-env-write — владелец через `!`, дальше по STOP-env.md.
