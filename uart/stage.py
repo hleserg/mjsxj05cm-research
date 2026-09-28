@@ -104,7 +104,7 @@ NORBOOT = "sf probe 0; sf read 0x22000000 ${sf_kernel_start} ${sf_kernel_size}; 
 ENV_OLD_CRC, ENV_NEW_CRC = os.environ.get("ENV_OLD_CRC", "b8213e13"), os.environ.get("ENV_NEW_CRC", "2aa0dde8")
 STAGES["2a-p4-env"] = [
     "mmc dev 0; mmc rescan; fatls mmc 0:1",                          # A: ожидаю «No partition table» (механизм отказа) — только лог
-    ("mmc dev 0; fatls mmc 0:1", r"uImage\.ssc325"),                 # B: без rescan карта читается → иначе ABORT (гипотеза неверна)
+    ("mmc dev 0; fatls mmc 0:1", r"(?i)uimage\.ssc325"),             # B: без rescan карта читается → иначе ABORT (гипотеза неверна)
     ("fatload mmc 0:1 0x22100000 env-new.bin", r"4096 bytes read"),
     ("crc32 0x22100000 0x1000", "==> " + ENV_NEW_CRC),
     "env import -c 0x22100000 0x1000", "printenv bootcmd", "printenv norboot",
@@ -178,6 +178,8 @@ def main(stage):
     port = serial.Serial("/dev/ttyAMA0", 115200, timeout=0.02)
     out = HERE / time.strftime(f"stage-{stage}-%Y%m%d-%H%M%S.log")
     log, buf = open(out, "wb"), b""
+    def say(m):   # 29.09: служебные строки и в stdout, и в лог (владелец запускает с > /dev/null)
+        print(m, flush=True); log.write(m.encode() + b"\n"); log.flush()
 
     def rx():
         nonlocal buf
@@ -195,7 +197,7 @@ def main(stage):
     passive = False   # после nor-env-write: U-Boot грузит карту сам по env из NOR — Enter не шлём, только лог + FIFO
     while True:   # 28.09: цикл на сброс камеры — после «IPL» в консоли снова ловим U-Boot, иначе сброс = загрузка стока из NOR
         if passive:
-            print("\n--- пассивно: env в NOR записан, автозагрузка без Enter; только лог + FIFO", flush=True)
+            say("\n--- пассивно: env в NOR записан, автозагрузка без Enter; только лог + FIFO")
         else:
             print(f"пишу {out}\nшлю Enter — ВКЛЮЧАЙ КАМЕРУ (жду {wait} с)", flush=True)
             end, prompt = time.time() + wait, None
@@ -214,11 +216,11 @@ def main(stage):
                     if c.startswith(("bootm", "run ", "reset")) and (b"Starting kernel" in buf[mark:] or RESET.search(buf[mark:])):
                         break
                 if expect and not re.search(expect, buf[mark:].decode("latin-1")):
-                    print(f"\n--- ABORT: после `{c}` нет ответа /{expect}/ — дальше ничего не шлю, камера в U-Boot", flush=True)
+                    say(f"\n--- ABORT: после `{c}` нет ответа /{expect}/ — дальше ничего не шлю, камера в U-Boot")
                     break
             else:
                 passive = stage == WRITE_STAGE
-            print(f"\n--- команды этапа {stage} посланы; консоль: echo CMD > {FIFO} ; лог {out}", flush=True)
+            say(f"\n--- команды этапа {stage} посланы; консоль: echo CMD > {FIFO} ; лог {out}")
         buf = b""
         hooked = False   # постбут-хук: init4.sh напечатал SSH_READY_ip → uart/postboot.sh (autorun.sh с p1 карты по SSH), один раз
         while True:
@@ -227,9 +229,9 @@ def main(stage):
                 hooked = True
                 import subprocess
                 subprocess.Popen([str(HERE / "postboot.sh")], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                print("\n--- SSH_READY_ip: запущен postboot.sh (лог uart/postboot.log)", flush=True)
+                say("\n--- SSH_READY_ip: запущен postboot.sh (лог uart/postboot.log)")
             if RESET.search(buf[-8192:]):
-                print("\n--- IPL после загрузки: камера сбросилась, снова ловлю U-Boot", flush=True)
+                say("\n--- IPL после загрузки: камера сбросилась, снова ловлю U-Boot")
                 break
             try:
                 line = os.read(fd, 4096)
@@ -237,14 +239,14 @@ def main(stage):
                 line = b""
             if line.startswith(b"#passive"):   # управление, в порт не идёт: после ручного дописывания/отката через FIFO
                 passive = True                   # (ABORT, затем `reset` руками) не ловить U-Boot заново — дать автозагрузку
-                print("\n--- #passive: Enter больше не шлю", flush=True)
+                say("\n--- #passive: Enter больше не шлю")
             elif line.startswith(b"#stage "):   # 29.09: `#stage 2a-p4-env` — какой этап слать при СЛЕДУЮЩЕМ перехвате U-Boot
                 name = line.split()[1].decode(errors="replace")   # (после reboot -f), без перевзвода процесса владельцем.
                 if name in STAGES and name != WRITE_STAGE:        # только RAM-этапы: запись в NOR — отдельный запуск с NOR_WRITE=yes
                     stage, cmds = name, [norm(c) for c in STAGES[name]]
-                    print(f"\n--- #stage: следующий перехват U-Boot = этап {stage}", flush=True)
+                    say(f"\n--- #stage: следующий перехват U-Boot = этап {stage}")
                 else:
-                    print(f"\n--- #stage {name}: отказ (нет такого или это {WRITE_STAGE})", flush=True)
+                    say(f"\n--- #stage {name}: отказ (нет такого или это {WRITE_STAGE})")
             elif line:
                 port.write(line.rstrip(b"\n") + b"\n")
             else:

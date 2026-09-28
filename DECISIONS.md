@@ -580,3 +580,15 @@ U-Boot — перед каждой загрузкой с карты переза
 (3) Гейты nor-env-write: ENV_OLD_CRC=b8213e13 (v1 в NOR), ENV_NEW_CRC=2aa0dde8. (4) FIFO-команда `#stage <имя>` в stage.py переключает RAM-этап для следующего перехвата —
 владелец перевзводит процесс один раз (2a-p4), запись NOR по-прежнему только его отдельный запуск с NOR_WRITE=yes. (5) Вторая запись тех же 4 КБ — новый STOP (uboot/STOP-env.md v2), ждём «да».
 **Что подтверждено.** Цепочка `sdboot → norboot` при нечитаемой карте уводит в сток дважды (тёплый и холодный) — откат «вынуть карту» работает по факту.
+
+
+## 29.09 00:29 — репетиция env v2 прошла; ONVIF admin работает; STOP v2 ждёт «да»
+Факты (лог `uart/stage-2a-p4-20260929-001810.log`, холодный старт владельца 00:19 → OpenIPC через stage.py; `reboot -f` 00:24 → репетиция):
+- Шаг A `mmc dev 0; mmc rescan; fatls mmc 0:1` одной строкой на этот раз **прошёл**: rescan послал и 0x00FFFFF1, и 0x80FFFFF1, карта осталась HS, листинг есть.
+  Значит «rescan back-to-back теряет HS» — не детерминизм, а гонка: 2/2 отказа в автозагрузке (тёплый и холодный), 2/2 успеха при наборе с UART.
+  Вывод не меняется: v2 убирает вторую инициализацию вовсе, гонке негде случиться; `mmc dev 0` читал MBR во всех 4 случаях.
+- Шаг B `mmc dev 0; fatls` — листинг; stage.py дал ABORT из-за регистра (`fatls` печатает `uimage.ssc325`) — regex исправлен на `(?i)`. Дальше руками через console.in:
+  `fatload env-new.bin` 4096 Б → `crc32 = 2aa0dde8` → `env import -c` (штатное `Can't overwrite "ethaddr"`, MAC тот же) → `printenv sdboot` без rescan → `run sdboot` → ядро → INIT4 → SSH → CAM_UP.
+- cam-up.sh с p1 применился: majestic.yaml `onvif.username: admin`, пароль из onvif-password.txt; `GetDeviceInformation` с digest admin → OpenIPC/IP Camera, без логина → 401. video1 и motionDetect enabled, mma fail 0.
+Решения: (1) STOP v2 (`uboot/STOP-env.md`) остаётся в силе, запрос «да» владельцу; (2) stage.py: служебные строки (`--- ABORT/#stage/#passive`) теперь дублируются в лог (`say()`), т.к. владелец запускает с `> /dev/null`;
+(3) tools/p1-put.sh — по одному файлу на SSH-вызов (команда ~8 КБ роняла dropbear).
