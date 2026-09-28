@@ -7,6 +7,9 @@
 переменные 'k=v\\0', конец '\\0\\0', хвост нулями (так пишет saveenv); saveenv стирает только этот 4K-сектор;
 парсер U-Boot простой (без if/then): команды через ';' идут все подряд, поэтому mw.l гасит magic перед fatload,
 чтобы без карты bootm не подхватил старое ядро из DRAM, а прошёл дальше к NOR.
+Оговорка: `saveenv` после fatload запишет ещё fileaddr/filesize из RAM-env → блок в NOR не совпадёт побайтово с этим
+файлом; побайтовое совпадение даёт только `sf write` этого файла. Репетиция в RAM: этап 2a-p4-env в uart/stage.py
+(fatload env-new.bin с p1 → env import -c → run bootcmd).
 """
 import hashlib, os, re, struct, sys, zlib
 from pathlib import Path
@@ -44,7 +47,10 @@ def main(out):
                    sdargs=SD_ARGS, norargs=env["bootargs"])
     new = build(new_env)
     Path(out).write_bytes(new)
-    print(f"смещение 0x{OFF:X} размер 0x{SIZE:X}\nsha256 старого: {hashlib.sha256(old).hexdigest()}\nsha256 нового:  {hashlib.sha256(new).hexdigest()}\nфайл: {out} ({len(new)} Б, занято {new.find(b'\0\0', 4) + 2} Б)")
+    # crc32 по всем 4096 байтам — то, что печатает U-Boot `crc32 <addr> 0x1000` (после sf read / fatload): единственная проверка внутри U-Boot.
+    print(f"смещение 0x{OFF:X} размер 0x{SIZE:X}\nsha256 старого: {hashlib.sha256(old).hexdigest()}  crc32(4096) {zlib.crc32(old) & 0xFFFFFFFF:08x}"
+          f"\nsha256 нового:  {hashlib.sha256(new).hexdigest()}  crc32(4096) {zlib.crc32(new) & 0xFFFFFFFF:08x}"
+          f"\nфайл: {out} ({len(new)} Б, занято {new.find(b'\0\0', 4) + 2} Б)")
     for k in sorted(new_env):
         if new_env[k] != env.get(k):
             print(f"  {'+' if k not in env else '~'} {k}={mask(new_env[k])}")

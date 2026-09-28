@@ -88,8 +88,15 @@ STAGES = {
 SD_ARGS = STAGES["2a-p4"][-2].split(" ", 2)[2]   # bootargs карты — единый источник для mkenv.py и этапа 2a-p4-env
 SDBOOT = "mmc dev 0; mmc rescan; mw.l 0x22000000 0 4; fatload mmc 0:1 0x22000000 uImage.ssc325; setenv bootargs ${sdargs}; bootm 0x22000000"
 NORBOOT = "sf probe 0; sf read 0x22000000 ${sf_kernel_start} ${sf_kernel_size}; setenv bootargs ${norargs}; bootm 0x22000000"
-# Простой парсер U-Boot (без hush): текст в одинарных кавычках не режется по ';' и ${} в нём не раскрывается до `run` (README U-Boot, "Command Line Parsing").
-STAGES["2a-p4-env"] = [f"setenv sdargs {SD_ARGS}", f"setenv sdboot '{SDBOOT}'", "run sdboot"]
+# Репетиция env в RAM (advisor 21:30): грузим с p1 ТОТ ЖЕ 4K-блок, что пойдёт в NOR (uboot/mkenv.py → env-new.bin на p1),
+# U-Boot сам проверяет CRC (`env import -c`), затем полная цепочка bootcmd (sdboot → norboot). NOR не трогаем (env import — RAM).
+# MAXARGS стокового U-Boot = 32 (cli_simple_parse_line @0x23e09438) — без запаса для setenv длинных строк не обойтись, поэтому файл.
+STAGES["2a-p4-env"] = [
+    "mmc dev 0", "mmc rescan", "fatload mmc 0:1 0x22100000 env-new.bin",
+    "crc32 0x22100000 0x1000",             # сверить с crc32(4096) из mkenv.py
+    "env import -c 0x22100000 0x1000", "printenv bootcmd", "printenv sdboot", "printenv norboot",
+    "run bootcmd",
+]
 RESET = re.compile(rb"(^|\n)IPL[ _]")   # баннер IPL в начале строки = камера сбросилась (после загрузки ядра)
 FORBIDDEN = re.compile(r"\b(saveenv|sf\s+(erase|write|update)|erase|update|upgrade|flashcp|nand)\b")
 PROMPT = re.compile(rb"\n([^\r\n#]{1,24})# ")
