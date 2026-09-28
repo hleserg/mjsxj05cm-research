@@ -80,6 +80,7 @@ STAGES = {
         "bootm 0x22000000",
     ],
 }
+RESET = re.compile(rb"(^|\n)IPL[ _]")   # баннер IPL в начале строки = камера сбросилась (после загрузки ядра)
 FORBIDDEN = re.compile(r"\b(saveenv|sf\s+(erase|write|update)|erase|update|upgrade|flashcp|nand)\b")
 PROMPT = re.compile(rb"\n([^\r\n#]{1,24})# ")
 
@@ -120,42 +121,48 @@ def main(stage):
             sys.stdout.write(d.decode("latin-1")); sys.stdout.flush()
 
     wait = int(os.environ.get("STAGE_WAIT", "300"))
-    print(f"пишу {out}\nшлю Enter — ВКЛЮЧАЙ КАМЕРУ (жду {wait} с)", flush=True)
-    end, prompt = time.time() + wait, None
-    while time.time() < end and not prompt:
-        port.write(b"\r"); rx()
-        prompt = prompt_of(buf)
-    if not prompt:
-        sys.exit("\nU-Boot не остановился")
-    time.sleep(0.3); rx()
-    for c in cmds:
-        mark = len(buf)
-        port.write(c.encode() + b"\r")
-        t = time.time() + 30
-        while time.time() < t and buf.rfind(prompt) <= mark + len(c):
-            rx()
-            if c.startswith("bootm") and b"Starting kernel" in buf[mark:]:
-                break
-    print(f"\n--- команды этапа {stage} посланы; консоль: echo CMD > {FIFO} ; лог {out}", flush=True)
     if not FIFO.exists():
         os.mkfifo(FIFO)
     fd = os.open(FIFO, os.O_RDONLY | os.O_NONBLOCK)
-    hooked = False   # постбут-хук: init4.sh напечатал SSH_READY_ip → uart/postboot.sh (autorun.sh с p1 карты по SSH), один раз
-    while True:
-        rx()
-        if not hooked and b"SSH_READY_ip" in buf:
-            hooked = True
-            import subprocess
-            subprocess.Popen([str(HERE / "postboot.sh")], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print("\n--- SSH_READY_ip: запущен postboot.sh (лог uart/postboot.log)", flush=True)
-        try:
-            line = os.read(fd, 4096)
-        except BlockingIOError:
-            line = b""
-        if line:
-            port.write(line.rstrip(b"\n") + b"\n")
-        else:
-            time.sleep(0.02)
+    while True:   # 28.09: цикл на сброс камеры — после «IPL» в консоли снова ловим U-Boot, иначе сброс = загрузка стока из NOR
+        print(f"пишу {out}\nшлю Enter — ВКЛЮЧАЙ КАМЕРУ (жду {wait} с)", flush=True)
+        end, prompt = time.time() + wait, None
+        while time.time() < end and not prompt:
+            port.write(b"\r"); rx()
+            prompt = prompt_of(buf)
+        if not prompt:
+            sys.exit("\nU-Boot не остановился")
+        time.sleep(0.3); rx()
+        for c in cmds:
+            mark = len(buf)
+            port.write(c.encode() + b"\r")
+            t = time.time() + 30
+            while time.time() < t and buf.rfind(prompt) <= mark + len(c):
+                rx()
+                if c.startswith("bootm") and b"Starting kernel" in buf[mark:]:
+                    break
+        print(f"\n--- команды этапа {stage} посланы; консоль: echo CMD > {FIFO} ; лог {out}", flush=True)
+        boot = len(buf)
+        hooked = False   # постбут-хук: init4.sh напечатал SSH_READY_ip → uart/postboot.sh (autorun.sh с p1 карты по SSH), один раз
+        while True:
+            rx()
+            if not hooked and b"SSH_READY_ip" in buf[boot:]:
+                hooked = True
+                import subprocess
+                subprocess.Popen([str(HERE / "postboot.sh")], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                print("\n--- SSH_READY_ip: запущен postboot.sh (лог uart/postboot.log)", flush=True)
+            if RESET.search(buf[boot:]):
+                print("\n--- IPL после загрузки: камера сбросилась, снова ловлю U-Boot", flush=True)
+                buf = buf[-4096:]
+                break
+            try:
+                line = os.read(fd, 4096)
+            except BlockingIOError:
+                line = b""
+            if line:
+                port.write(line.rstrip(b"\n") + b"\n")
+            else:
+                time.sleep(0.02)
 
 
 if __name__ == "__main__":
