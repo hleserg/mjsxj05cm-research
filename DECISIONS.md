@@ -557,3 +557,15 @@ U-Boot — перед каждой загрузкой с карты переза
 - go2rtc на Pi снят и удалён (user-юнит, `~/go2rtc` с конфигом и паролем), `~/frigate` и `tools/frigate/` удалены, скачивание образа остановлено. Mosquitto на Pi — не наш, не трогали.
 - Камера должна быть самодостаточной: majestic отдаёт RTSP (MAIN `rtsp://192.168.1.53:554/stream=0`, SUB `stream=1`, логин root) и ONVIF (`http://192.168.1.53/onvif/device_service`) — HA на большом компе берёт её по ONVIF как вторую камеру, Frigate там же берёт RTSP напрямую (detect по SUB, record по MAIN). Пароль — из p4/secret, в репо не попадает.
 - Запись «вкруг» и без интернета — на самой камере: p4 на карте + majestic `records` (владелец: «конечно да!»). Просмотр/скачивание куска без выемки карты — с камеры по HTTP (листинг записей majestic) и через Frigate на большом компе; ONVIF-плееры (Onvifer) архив с карты не увидят — majestic без Profile G.
+
+## 28.09 23:58 — Frigate на bigpc, ONVIF admin для Onvifer, распознавание лиц
+
+**Факты.** Frigate 0.18.0 (tensorrt) живёт на bigpc 192.168.1.10 в WSL2 (`/mnt/nvme/frigate`), HA — на doctor 192.168.1.51. majestic Lite: RTSP без аутентификации (ключей `rtsp.username/password` в бинарнике нет); ONVIF HTTP Basic + WSSE PasswordText идут через /etc/shadow (root), а WSSE PasswordDigest / HTTP Digest (Onvifer, ONVIF Device Manager) работают только если задан `onvif.password` (в /etc/shadow только хеш). WS-Discovery (239.255.255.250:3702, Hello/Probe) в majestic есть.
+
+**Решения.**
+1. Камера в Frigate на bigpc (владелец: «давай там сам»): go2rtc `mjsxj05cm`/`mjsxj05cm_sub` → `rtsp://192.168.1.53:554/stream=0|1` без кредов; камера `mjsxj05cm`: record MAIN (`preset-record-generic-audio-aac`, opus→aac), detect SUB 704x576@5. `onvif:` (PTZ/автотрекинг) не включаем без владельца. Бэкап конфига `config/config.yml.bak-20260928`. Пароль root в `.env` bigpc класть не стал (классификатор запретил, и он не нужен: RTSP открыт).
+2. `face_recognition: enabled: true, model_size: large` глобально (GPU есть). Лица учатся в UI Frigate (Explore → Face Library) — владелец «попялит в камеру».
+3. ONVIF: логин `admin`, пароль владельца — в `p4/secret/onvif-password.txt` (600, не в репо), на карте p1 `onvif-password.txt`; cam-up.sh подставляет `onvif.username/password` в /tmp/m.yaml до старта majestic. Onvifer: discovery + admin/пароль, профили/URI потоков отдаёт GetProfiles/GetStreamUri (сам).
+4. RTSP без пароля на LAN — принято (majestic Lite не умеет иначе); наружу камера не смотрит.
+
+**Ограничения.** HA: токена нет (классификатор) → Reload интеграции Frigate и добавление ONVIF — клики владельца.
