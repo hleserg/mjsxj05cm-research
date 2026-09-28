@@ -1,0 +1,40 @@
+# Frigate на Pi (192.168.1.139): детекция движения/объектов по go2rtc-рестримам камеры MJSXJ05CM. Секретов нет.
+# Камера напрямую НЕ подключается (MMA-утечки majestic при лишних клиентах) — только через go2rtc на Pi.
+mqtt:
+  enabled: false          # Mosquitto на Pi слушает только 127.0.0.1 — из bridge-сети не виден; включить после listener 0.0.0.0 (sudo владельца)
+detectors:
+  cpu1:
+    type: cpu
+    num_threads: 3
+ffmpeg:
+  hwaccel_args: []
+cameras:
+  cam:
+    ffmpeg:
+      inputs:
+        - path: rtsp://192.168.1.139:8554/cam_sub
+          roles: [detect]
+        - path: rtsp://192.168.1.139:8554/cam_main
+          roles: [record]
+    detect:
+      width: 704
+      height: 576
+      fps: 5
+    objects:
+      track: [person, cat, dog]
+    record:
+      enabled: true
+      retain:
+        days: 2
+        mode: motion
+      alerts:
+        retain:
+          days: 7
+    snapshots:
+      enabled: true
+      retain:
+        default: 7
+    motion:
+      threshold: 30
+      contour_area: 10
+go2rtc: {}                # встроенный go2rtc Frigate не используем (внешний на Pi :8554/:1984); bridge-сеть, порты не конфликтуют
