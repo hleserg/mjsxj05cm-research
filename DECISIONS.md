@@ -604,3 +604,9 @@ U-Boot — перед каждой загрузкой с карты переза
 - **v3:** `sdboot` = `mw.l 0x22000000 0 4; fatload mmc 0:1 0x22000000 uImage.ssc325; setenv bootargs ${sdargs}; bootm 0x22000000` (без mmc dev/rescan); crc32 `18901e20`, sha256 eda6b62e…; гейты stage.py по умолчанию 2aa0dde8 → 18901e20.
 - Репетиции теперь верные: `2a-p4-env3` (сначала `fatload tf_update.img` = стоковая проверка, затем SDBOOT построчно; файла v3 не требует) и `2a-p4-env` (fatload env-new.bin = init #1 → import → run sdboot). Критерий: ровно один `mmc_core_init` за перехват.
 - Третья запись NOR — только после репетиции, нового STOP v3 и явного «да». Если и v3 не грузит — загрузка с помощью Pi или дизассемблер (`has_init`).
+
+## 29.09 01:09 — репетиции v3 ПРОЙДЕНЫ (stage.py 529667, лог `uart/stage-2a-p4-env3-20260929-005522.log`)
+- 00:55 (холодный старт, этап `2a-p4-env3`): `fatload tf_update.img` → `mmc_core_init` ×1 → Unable to read file → `mw.l` → `fatload uImage` 1977576 bytes (без второй init) → `bootm` → INIT4_START → SSH_READY.
+- 01:08 (`reboot -f`, этап `2a-p4-env`, env-new.bin = v3 на p1, md5 995673e7…): `fatload env-new.bin` (init ×1) → crc32 `18901e20` → `env import -c` → `sdboot=mw.l …` → `run sdboot` → kernel → INIT4 → SSH; majestic 636, mma fail 0.
+- Критерий «ровно один mmc_core_init за перехват» выполнен в обеих. Монитор UART починен: `grep -a` (лог содержит бинарные байты, без -a grep молчал — 00:55 события не пришли).
+- Следующий шаг: AskUserQuestion «Да, пиши env v3» → владелец запускает nor-env-write через `!` (гейты 2aa0dde8 → 18901e20).
