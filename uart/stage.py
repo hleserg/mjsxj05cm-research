@@ -18,8 +18,8 @@ from pathlib import Path
 HERE = Path(__file__).parent
 FIFO = HERE / "console.in"
 # 28.09 20:40: размер MMA-кучи из окружения (MMA_SZ=0x1800000 — эксперимент против "vpe0-out0-1 mma fail"; сток = 0x1400000).
-# Крон перевзводит stage.py без MMA_SZ → откат на проверенное значение без правки файла.
-MEM = f"LX_MEM=0x3fc6000 mma_heap=mma_heap_name0,miu=0,sz={os.environ.get('MMA_SZ', '0x1400000')}"
+# 28.09 21:50: heap-тест пройден (mma fail 0, idle 83%) → дефолт 0x1800000; MMA_SZ=0x1400000 = откат на сток.
+MEM = f"LX_MEM=0x3fc6000 mma_heap=mma_heap_name0,miu=0,sz={os.environ.get('MMA_SZ', '0x1800000')}"
 # mtdparts OpenIPC c ro у всех разделов — страховка от записи в NOR из userland.
 # Если ядро дописывает свою cmdline (CMDLINE_EXTEND), победит его строка — проверить /proc/mtd.
 RO = ("mtdparts=NOR_FLASH:320k(boot)ro,2048k(kernel)ro,7552k(rootfs)ro,"
