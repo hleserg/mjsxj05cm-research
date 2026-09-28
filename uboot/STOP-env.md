@@ -45,7 +45,7 @@ cmp.b 0x22100000 0x22200000 0x1000 # Total of 4096 bytes were the same
 
 ## Откат
 - Мягкий: вынуть карту → `norboot` → сток.
-- Полный: `fatload mmc 0:1 0x22100000 env-old.bin` (положить на p1 заранее: `dd if=spi/original-01.bin bs=4096 skip=79 count=1`) → те же `sf erase`/`sf write` → crc32 `6c1674b6`.
+- Полный: `fatload mmc 0:1 0x22100000 env-old.bin` (УЖЕ на p1: положен 21:41 с камеры, sha256 8e912e76…; источник `dd if=spi/original-01.bin bs=4096 skip=79 count=1`) → те же `sf erase`/`sf write` → crc32 `6c1674b6`.
 
 ## Приёмка «грузится без Pi»
 1. Владелец останавливает stage.py (`pkill -f "stage.py 2a-p4"` — классификатор мне запретил).
