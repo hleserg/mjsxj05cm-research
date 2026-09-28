@@ -610,3 +610,5 @@ U-Boot — перед каждой загрузкой с карты переза
 - 01:08 (`reboot -f`, этап `2a-p4-env`, env-new.bin = v3 на p1, md5 995673e7…): `fatload env-new.bin` (init ×1) → crc32 `18901e20` → `env import -c` → `sdboot=mw.l …` → `run sdboot` → kernel → INIT4 → SSH; majestic 636, mma fail 0.
 - Критерий «ровно один mmc_core_init за перехват» выполнен в обеих. Монитор UART починен: `grep -a` (лог содержит бинарные байты, без -a grep молчал — 00:55 события не пришли).
 - Следующий шаг: AskUserQuestion «Да, пиши env v3» → владелец запускает nor-env-write через `!` (гейты 2aa0dde8 → 18901e20).
+
+## 29.09 01:39 — владелец: «Да, пиши env v3» (AskUserQuestion). Запуск nor-env-write — владелец через `!`, дальше по STOP-env.md v3 (гейты 2aa0dde8 → 18901e20).
