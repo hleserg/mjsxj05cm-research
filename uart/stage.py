@@ -116,6 +116,20 @@ STAGES["2a-p4-env"] = [
 # построчно (из той же константы). ${sdargs} берётся из env v2 в NOR. После загрузки: grep mmc_core_init в логе — должен быть ОДИН.
 STAGES["2a-p4-env3"] = [("fatload mmc 0:1 0x22200000 tf_update.img", r"Unable to read file")] + [
     (c, r"bytes read" if c.startswith("fatload") else None) for c in SDBOOT.split("; ")]
+# 29.09 02:31: env v3 ЗАПИСАН (лог stage-nor-env-write-20260929-022832.log), автозагрузка снова в сток, но ПО-НОВОМУ:
+# повторной mmc_core_init нет, а первое чтение блока 0 сразу (мс) после «read file tf_update.img error.» вернуло нули
+# («bad MBR sector signature 0x0000» → «Invalid partition 1» → Wrong Image Format → norboot). В репетициях между теми же
+# двумя fatload проходили секунды — MBR читался. Эксперимент в RAM (NOR не трогает, только чтение карты): одна строка =
+# тайминг автозагрузки; варианты «что между» — ничего / холостое чтение блока 0 / задержка crc32 (~32 МБ) / задержка md
+# (вывод в UART ~1 с). Результат считаю по логу: «bytes read» = ОК, «bad MBR|Invalid partition|Unable» = отказ. В конце
+# грузим OpenIPC (SDBOOT построчно), чтобы камера была доступна по SSH.
+_TF, _UI = "fatload mmc 0:1 0x22200000 tf_update.img", "fatload mmc 0:1 0x22000000 uImage.ssc325"
+STAGES["2a-p4-sdtest"] = (   # `echo` в help стока нет — пробы различаю по тексту команды в логе (порядок: A×4, D×3, B×3, C×3)
+    [f"{_TF}; {_UI}"] * 4 +                                                       # A: как в автозагрузке (мс между fatload)
+    [f"{_TF}; mmc read 0x22400000 0 1; md.b 0x224001fe 2; {_UI}"] * 3 +           # D: холостое чтение блока 0 (+ видно 55aa/0000)
+    [f"{_TF}; crc32 0x20000000 0x2000000; {_UI}"] * 3 +                           # B: задержка ~0.3 с без UART
+    [f"{_TF}; md.l 0x22200000 0x400; {_UI}"] * 3 +                                # C: задержка ~1 с (вывод в UART)
+    [(c, r"bytes read" if c.startswith("fatload") else None) for c in SDBOOT.split("; ")])
 # 28.09 22:25: ЕДИНСТВЕННАЯ запись в NOR (uboot/STOP-env.md): 4K env @0x4F000. Запускается ТОЛЬКО владельцем после «да» на STOP:
 #   NOR_WRITE=yes STAGE_WAIT=86400 nohup python3 uart/stage.py nor-env-write > /dev/null 2>&1 &
 # Без NOR_WRITE=yes этап отклоняется (FORBIDDEN). Каждый шаг (cmd, ожидаемый ответ): нет ответа → ABORT, дальше ничего
