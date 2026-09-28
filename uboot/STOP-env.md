@@ -9,7 +9,7 @@
 | Размер | `0x1000` (4096 Б, один 4K-сектор EN25QH128A) |
 | Что это | блок переменных U-Boot (env): CRC32 + `k=v\0…\0\0`, хвост нули |
 | Старый блок | sha256 `8e912e76f338410689e514bf91c8bdcc97bd8c3b1bc574ab40adb68226056e27`, crc32(4096) `6c1674b6` |
-| Новый блок | из `uboot/mkenv.py` (sz=0x1400000: sha256 `3ed24d6b4ad62b29c72e91446e3c2a759d729c0704815b5418e2b645a78a6d8a`, crc32 `8ded3324`; **sz=0x1800000 (выбран после heap-теста 21:50): sha256 `41aba33b2f72bcaa433a05459b703809e3a9b500e81b5f4051731410aeb9d440`, crc32(4096) `b8213e13`**; файл на p1 карты с 21:50) |
+| Новый блок | `uboot/mkenv.py`, mma_heap sz=0x1800000 (после heap-теста 21:50): sha256 `41aba33b2f72bcaa433a05459b703809e3a9b500e81b5f4051731410aeb9d440`, crc32(4096) `b8213e13`, занято 1082 Б. Файл `env-new.bin` на p1 карты с 21:50 (перепроверен 22:19) |
 | Разница | +`sdboot`, +`norboot`, +`sdargs`, +`norargs`; `bootcmd=run sdboot; run norboot`. Остальные 19 переменных (в т.ч. MAC, стоковый `bootargs`) байт в байт как были |
 
 ## Зачем
@@ -21,6 +21,16 @@
 - IPL/U-Boot/kernel/rootfs блоки не пишутся ни одной командой этого этапа → восстановление программатором не требуется. (Если бы потребовалось: ~15 мин, три идентичных дампа `spi/original-0{1,2,3}.bin` есть, sha256 совпадают.)
 
 ## Команды (U-Boot по UART через stage.py, после «да»)
+Этап `nor-env-write` в `uart/stage.py` (22:30): шлёт ровно эти команды и после КАЖДОЙ проверяет ответ U-Boot;
+нет ожидаемого ответа → `ABORT`, дальше ничего не шлётся, камера остаётся в U-Boot (консоль через `uart/console.in`).
+Без `NOR_WRITE=yes` этап отклоняется (белый список). Запуск — только владелец, через `!`, после «да»:
+```
+cd ~/mjsxj05cm-research; for p in $(pgrep -f "stage.py"); do [ "$p" != "$$" ] && kill $p; done; NOR_WRITE=yes STAGE_WAIT=86400 nohup python3 uart/stage.py nor-env-write > /dev/null 2>&1 &
+```
+затем я: `python3 uart/camssh.py 'reboot -f'` → stage.py ловит U-Boot → этап → `reset` → U-Boot грузит карту сам (stage.py пассивен, Enter не шлёт).
+Гейты: `SF: Detected` → `Read: OK` → `==> 6c1674b6` (в NOR ещё старый блок) → `4096 bytes read` → `==> b8213e13` (файл с p1 = этот STOP) → `Erased: OK` → `Written: OK` → `Read: OK` → `==> b8213e13` → `were the same`.
+Промежуточный отказ между erase и write (env-сектор FF) = default env = приглашение U-Boot, дописываю через console.in — не кирпич.
+
 Проверка ДО записи (read-only, можно заранее):
 ```
 sf probe 0

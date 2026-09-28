@@ -97,6 +97,29 @@ STAGES["2a-p4-env"] = [
     "env import -c 0x22100000 0x1000", "printenv bootcmd", "printenv sdboot", "printenv norboot",
     "run bootcmd",
 ]
+# 28.09 22:25: ЕДИНСТВЕННАЯ запись в NOR (uboot/STOP-env.md): 4K env @0x4F000. Запускается ТОЛЬКО владельцем после «да» на STOP:
+#   NOR_WRITE=yes STAGE_WAIT=86400 nohup python3 uart/stage.py nor-env-write > /dev/null 2>&1 &
+# Без NOR_WRITE=yes этап отклоняется (FORBIDDEN). Каждый шаг (cmd, ожидаемый ответ): нет ответа → ABORT, дальше ничего
+# не шлём, камера остаётся в U-Boot (консоль через FIFO). До `sf erase` два гейта: старый блок в NOR crc32 6c1674b6
+# и новый файл с p1 crc32 b8213e13 (uboot/mkenv.py). После записи: sf read → crc32 → cmp.b, затем `reset` — U-Boot
+# перечитывает env из NOR и грузит карту сам; stage.py дальше ПАССИВЕН (Enter не шлёт, только лог + FIFO) = приёмка без Pi.
+# U-Boot 2015.01: `sf erase`/`sf write` печатают "Erased: OK"/"Written: OK", `cmp.b` — "were the same".
+WRITE_STAGE = "nor-env-write"
+ENV_OLD_CRC, ENV_NEW_CRC = os.environ.get("ENV_OLD_CRC", "6c1674b6"), os.environ.get("ENV_NEW_CRC", "b8213e13")
+STAGES[WRITE_STAGE] = [
+    ("sf probe 0", r"SF: Detected"),
+    ("sf read 0x22200000 0x4F000 0x1000", r"Read: OK"),
+    ("crc32 0x22200000 0x1000", "==> " + ENV_OLD_CRC),               # в NOR ещё старый блок (иначе уже записано/чужое → ABORT)
+    ("mmc dev 0", None), ("mmc rescan", None),
+    ("fatload mmc 0:1 0x22100000 env-new.bin", r"4096 bytes read"),
+    ("crc32 0x22100000 0x1000", "==> " + ENV_NEW_CRC),               # файл с p1 = тот, что в STOP-запросе
+    ("sf erase 0x4F000 0x1000", r"Erased: OK"),
+    ("sf write 0x22100000 0x4F000 0x1000", r"Written: OK"),
+    ("sf read 0x22300000 0x4F000 0x1000", r"Read: OK"),
+    ("crc32 0x22300000 0x1000", "==> " + ENV_NEW_CRC),               # верификация из NOR
+    ("cmp.b 0x22100000 0x22300000 0x1000", r"were the same"),
+    ("reset", None),
+]
 RESET = re.compile(rb"(^|\n)IPL[ _]")   # баннер IPL в начале строки = камера сбросилась (после загрузки ядра)
 FORBIDDEN = re.compile(r"\b(saveenv|sf\s+(erase|write|update)|erase|update|upgrade|flashcp|nand)\b")
 PROMPT = re.compile(rb"\n([^\r\n#]{1,24})# ")
@@ -111,11 +134,22 @@ def prompt_of(buf):
     return None
 
 
+def norm(c):
+    return c if isinstance(c, tuple) else (c, None)
+
+
+def write_allowed(stage, env):
+    return stage == WRITE_STAGE and env.get("NOR_WRITE") == "yes"
+
+
 def selftest():
     assert prompt_of(b"\r\nSigmaStar # \r\nSigmaStar # \r\nSigmaStar # ") == b"SigmaStar # "
     assert prompt_of(b"\r\nSigmaStar # \r\nSigmaStar # ") is None
-    for cmds in STAGES.values():
-        assert not any(FORBIDDEN.search(c) for c in cmds), cmds
+    for name, cmds in STAGES.items():
+        hits = [c for c, _ in map(norm, cmds) if FORBIDDEN.search(c)]
+        assert bool(hits) == (name == WRITE_STAGE), (name, hits)   # запись только в WRITE_STAGE, и там она есть
+    assert not write_allowed(WRITE_STAGE, {}) and not write_allowed("2a-p4", {"NOR_WRITE": "yes"})
+    assert write_allowed(WRITE_STAGE, {"NOR_WRITE": "yes"})
     assert FORBIDDEN.search("sf update 0x22000000 0x50000 0x200000")
     assert FORBIDDEN.search("saveenv")
     assert not FORBIDDEN.search("sf read 0x22000000 0x50000 0x200000")
@@ -124,8 +158,9 @@ def selftest():
 
 def main(stage):
     import serial
-    cmds = STAGES[stage]
-    assert not any(FORBIDDEN.search(c) for c in cmds)
+    cmds = [norm(c) for c in STAGES[stage]]
+    if not write_allowed(stage, os.environ):
+        assert not any(FORBIDDEN.search(c) for c, _ in cmds), "запись в NOR только этапом nor-env-write с NOR_WRITE=yes"
     port = serial.Serial("/dev/ttyAMA0", 115200, timeout=0.02)
     out = HERE / time.strftime(f"stage-{stage}-%Y%m%d-%H%M%S.log")
     log, buf = open(out, "wb"), b""
@@ -143,24 +178,33 @@ def main(stage):
     if not FIFO.exists():
         os.mkfifo(FIFO)
     fd = os.open(FIFO, os.O_RDONLY | os.O_NONBLOCK)
+    passive = False   # после nor-env-write: U-Boot грузит карту сам по env из NOR — Enter не шлём, только лог + FIFO
     while True:   # 28.09: цикл на сброс камеры — после «IPL» в консоли снова ловим U-Boot, иначе сброс = загрузка стока из NOR
-        print(f"пишу {out}\nшлю Enter — ВКЛЮЧАЙ КАМЕРУ (жду {wait} с)", flush=True)
-        end, prompt = time.time() + wait, None
-        while time.time() < end and not prompt:
-            port.write(b"\r"); rx()
-            prompt = prompt_of(buf[-8192:])
-        if not prompt:
-            sys.exit("\nU-Boot не остановился")
-        time.sleep(0.3); rx()
-        for c in cmds:
-            mark = len(buf)
-            port.write(c.encode() + b"\r")
-            t = time.time() + 30
-            while time.time() < t and buf.rfind(prompt) <= mark + len(c):
-                rx()
-                if c.startswith(("bootm", "run ")) and b"Starting kernel" in buf[mark:]:
+        if passive:
+            print("\n--- пассивно: env в NOR записан, автозагрузка без Enter; только лог + FIFO", flush=True)
+        else:
+            print(f"пишу {out}\nшлю Enter — ВКЛЮЧАЙ КАМЕРУ (жду {wait} с)", flush=True)
+            end, prompt = time.time() + wait, None
+            while time.time() < end and not prompt:
+                port.write(b"\r"); rx()
+                prompt = prompt_of(buf[-8192:])
+            if not prompt:
+                sys.exit("\nU-Boot не остановился")
+            time.sleep(0.3); rx()
+            for c, expect in cmds:
+                mark = len(buf)
+                port.write(c.encode() + b"\r")
+                t = time.time() + 30
+                while time.time() < t and buf.rfind(prompt) <= mark + len(c):
+                    rx()
+                    if c.startswith(("bootm", "run ", "reset")) and (b"Starting kernel" in buf[mark:] or RESET.search(buf[mark:])):
+                        break
+                if expect and not re.search(expect, buf[mark:].decode("latin-1")):
+                    print(f"\n--- ABORT: после `{c}` нет ответа /{expect}/ — дальше ничего не шлю, камера в U-Boot", flush=True)
                     break
-        print(f"\n--- команды этапа {stage} посланы; консоль: echo CMD > {FIFO} ; лог {out}", flush=True)
+            else:
+                passive = stage == WRITE_STAGE
+            print(f"\n--- команды этапа {stage} посланы; консоль: echo CMD > {FIFO} ; лог {out}", flush=True)
         buf = b""
         hooked = False   # постбут-хук: init4.sh напечатал SSH_READY_ip → uart/postboot.sh (autorun.sh с p1 карты по SSH), один раз
         while True:
@@ -188,7 +232,7 @@ if __name__ == "__main__":
     if a == ["--selftest"]:
         selftest()
     elif a[:1] == ["--dry-run"] and a[1:2] and a[1] in STAGES:
-        print("\n".join(STAGES[a[1]]))
+        print("\n".join(f"{c}\t\t# ожидаю /{e}/" if e else c for c, e in map(norm, STAGES[a[1]])))
     elif len(a) == 1 and a[0] in STAGES:
         main(a[0])
     else:
