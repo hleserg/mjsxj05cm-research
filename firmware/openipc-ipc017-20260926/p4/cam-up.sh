@@ -1,6 +1,9 @@
+#!/bin/sh
 # Поднять видеостек OpenIPC на камере после загрузки с карты (RAM, NOR не трогает).
-# Запуск с Pi:  python3 uart/camssh.py "$(cat firmware/openipc-ipc017-20260926/p4/cam-up.sh)"
+# Запуск: autorun.sh с p1 карты (автоматически) или с Pi: python3 uart/camssh.py "$(cat firmware/openipc-ipc017-20260926/p4/cam-up.sh)"
 # Порядок insmod = /usr/bin/load_sigmastar (сам load_sigmastar НЕ запускать: fw_setenv sensor).
+# Защита: majestic уже работает → выходим. Повторный старт majestic течёт по MMA (headroom ноль) — сбросы 12:33 и 16:37.
+pidof majestic > /dev/null && { echo "majestic уже работает — второй старт не делаем (MMA)"; exit 0; }
 M=/lib/modules/4.9.84/sigmastar
 for m in mhal mi_common "mi_sys logBufSize=256 default_config_path=/usr/bin" mi_rgn mi_ai mi_ao mi_sensor mi_shadow mi_divp mi_vif mi_vpe mi_venc; do
   set -- $m; n=$1; shift; lsmod | grep -q "^$n " || insmod $M/$n.ko "$@" || echo "FAIL insmod $n"

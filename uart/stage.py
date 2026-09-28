@@ -140,8 +140,14 @@ def main(stage):
     if not FIFO.exists():
         os.mkfifo(FIFO)
     fd = os.open(FIFO, os.O_RDONLY | os.O_NONBLOCK)
+    hooked = False   # постбут-хук: init4.sh напечатал SSH_READY_ip → uart/postboot.sh (autorun.sh с p1 карты по SSH), один раз
     while True:
         rx()
+        if not hooked and b"SSH_READY_ip" in buf:
+            hooked = True
+            import subprocess
+            subprocess.Popen([str(HERE / "postboot.sh")], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            print("\n--- SSH_READY_ip: запущен postboot.sh (лог uart/postboot.log)", flush=True)
         try:
             line = os.read(fd, 4096)
         except BlockingIOError:

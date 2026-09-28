@@ -1,5 +1,5 @@
 #!/bin/sh
-# init=/init4.sh на p3 карты (sd-stage6.img, v6): rootfs OpenIPC + этот скрипт + /wpa.conf + /shadow4. 28.09.2026.
+# init=/init4.sh на p3 карты (sd-stage8.img, v7 = v6 + хук autorun.sh с p1): rootfs OpenIPC + этот скрипт + /wpa.conf + /shadow4. 28.09.2026.
 # Цель: Wi-Fi (MT7601U) + SSH (dropbear, пароль root) прямо с карты, БЕЗ записи в NOR.
 # v6 (после sd-stage5): wpa.conf как у стока (key_mgmt/proto/scan_ssid), `iwconfig mode Managed` перед wpa_supplicant,
 # лог wpa_supplicant в /tmp/wpa.log и печать состояния каждые 5 с; udhcpc со своим скриптом (без fallback-IP 192.168.1.10
@@ -44,6 +44,10 @@ S WIFI_RESULT; ip -4 addr show wlan0; ip route; wpa_cli -i wlan0 status 2>&1 | g
 S WPA_LOG; grep -iE 'CTRL-EVENT|Trying to associate|Associat|Authenticat|WPA:|EAPOL|SME|Scan|Failed|nl80211: (Could|Fail|Driver)|Could not|error' /tmp/wpa.log | tail -60
 S SSH; dropbear -R -p 22 -K 300; echo "dropbear rc=$?"; sleep 2; pidof dropbear
 S SSH_READY_ip; ip -4 addr show wlan0 | sed -n 's/.*inet \([0-9.]*\).*/\1/p'
+# v7 (sd-stage8): хук автозапуска с FAT p1 карты — autorun.sh (NTP со шлюза, cam-up.sh, ptz init) без пересборки squashfs.
+# Фоном: сломанный autorun не должен стоить SSH и консоли. Лог /tmp/autorun.log. p1 монтируется ro (/mnt на squashfs read-only).
+S AUTORUN_p1
+mkdir -p /tmp/p1; mount -o ro -t vfat /dev/mmcblk0p1 /tmp/p1 && [ -f /tmp/p1/autorun.sh ] && sh /tmp/p1/autorun.sh > /tmp/autorun.log 2>&1 &
 # ---------- консоль: неинтерактивный sh из cat (см. шапку). Не слать '11111'/'22222' (магия ms_uart) ----------
 S INIT4_SHELL_forever
 while :; do cat | /bin/sh; sleep 2; done
