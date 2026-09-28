@@ -86,36 +86,41 @@ STAGES = {
     ],
 }
 SD_ARGS = STAGES["2a-p4"][-2].split(" ", 2)[2]   # bootargs карты — единый источник для mkenv.py и этапа 2a-p4-env
-# 29.09 00:10: БЕЗ `mmc rescan` (v2). v1 с rescan записан в NOR 23:26 и на тёплом reset, и на холодном старте падал в сток:
-# rescan сразу за `mmc dev 0` (одной строкой, без паузы) шлёт CMD_6-проверку, но НЕ шлёт CMD_6-переключение в HS →
-# карта остаётся DS 20 МГц → CMD_17 блока 0 → «No partition table» → «Wrong Image Format» → norboot (лог 232454, boot 2 и 3).
-# С паузой (stage.py по строкам) тот же rescan держит HS (лог 214152). `mmc dev 0` сам инициализирует карту (HS) и читает MBR,
-# fatload после него не переинициализирует. Сток так и грузит tf_update.img: init → fatload. sleep/test/if в U-Boot нет.
-SDBOOT = "mmc dev 0; mw.l 0x22000000 0 4; fatload mmc 0:1 0x22000000 uImage.ssc325; setenv bootargs ${sdargs}; bootm 0x22000000"
+# 29.09 00:40: v3 — БЕЗ `mmc dev 0` (и без rescan). v1 (rescan) и v2 (dev 0) записаны в NOR (23:26, 00:31) и оба в автозагрузке
+# падали в сток. Причина (логи 232454/003030): стоковый U-Boot ДО bootcmd сам инициализирует карту (проверка tf_update.img:
+# mmc_core_init с RealClk=0 [LS] → HS 32 МГц → FAT прочитан), а любая ПОВТОРНАЯ инициализация в bootcmd сразу за ней
+# (`mmc dev 0`/`mmc rescan` = force init) в 3 случаях из 5 возвращает мусор в блоке 0 → «No partition table» → norboot.
+# При перехвате Enter'ом автозагрузка обрывается ДО проверки tf_update → карта в приглашении НЕ инициализирована →
+# все репетиции v1/v2 шли от чистой карты и автозагрузку не моделировали. fatload на уже инициализированной карте
+# повторную init не делает (has_init; в логах после rescan третьего mmc_core_init нет) → v3 = только fatload.
+SDBOOT = "mw.l 0x22000000 0 4; fatload mmc 0:1 0x22000000 uImage.ssc325; setenv bootargs ${sdargs}; bootm 0x22000000"
 NORBOOT = "sf probe 0; sf read 0x22000000 ${sf_kernel_start} ${sf_kernel_size}; setenv bootargs ${norargs}; bootm 0x22000000"
 # Репетиция env в RAM (advisor 21:30): грузим с p1 ТОТ ЖЕ 4K-блок, что пойдёт в NOR (uboot/mkenv.py → env-new.bin на p1),
 # U-Boot сам проверяет CRC (`env import -c`). NOR не трогаем (env import — RAM).
 # MAXARGS стокового U-Boot = 32 (cli_simple_parse_line @0x23e09438) — без запаса для setenv длинных строк не обойтись, поэтому файл.
-# 29.09 00:10 (v2): сначала A/B одной строкой (как в автозагрузке, без пауз): A с rescan — ждём отказ карты, B без — ждём листинг;
-# затем `run sdboot` (НЕ bootcmd): при неудаче U-Boot остаётся в приглашении, добираю через FIFO (dev 0 / rescan / fatload / bootm),
-# а не уезжаю в сток без SSH. Репетиция — прокси (4-я инициализация за сессию, не 2-я как в автозагрузке); приёмка = холодный старт после записи.
-# CRC32(4096) блоков env для гейтов: OLD = что сейчас в NOR (v1 записан 23:26 → b8213e13; стоковый был 6c1674b6),
-# NEW = env-new.bin v2 с p1 (uboot/mkenv.py). Обе можно переопределить переменными окружения.
-ENV_OLD_CRC, ENV_NEW_CRC = os.environ.get("ENV_OLD_CRC", "b8213e13"), os.environ.get("ENV_NEW_CRC", "2aa0dde8")
+# 29.09 00:40 (v3): `fatload env-new.bin` — ПЕРВАЯ mmc-команда (= init #1, как проверка tf_update в автозагрузке), затем
+# `run sdboot` (НЕ bootcmd: при неудаче остаёмся в U-Boot, добираю через FIFO). Между двумя fatload в логе НЕ должно быть
+# mmc_core_init — это и есть проверка v3 (grep по логу после загрузки). Приёмка всё равно = холодный старт после записи.
+# CRC32(4096) блоков env для гейтов: OLD = что сейчас в NOR (v2 записан 00:31 → 2aa0dde8; v1 b8213e13; сток 6c1674b6),
+# NEW = env-new.bin v3 с p1 (uboot/mkenv.py). Обе можно переопределить переменными окружения.
+ENV_OLD_CRC, ENV_NEW_CRC = os.environ.get("ENV_OLD_CRC", "2aa0dde8"), os.environ.get("ENV_NEW_CRC", "18901e20")
 STAGES["2a-p4-env"] = [
-    "mmc dev 0; mmc rescan; fatls mmc 0:1",                          # A: ожидаю «No partition table» (механизм отказа) — только лог
-    ("mmc dev 0; fatls mmc 0:1", r"(?i)uimage\.ssc325"),             # B: без rescan карта читается → иначе ABORT (гипотеза неверна)
-    ("fatload mmc 0:1 0x22100000 env-new.bin", r"4096 bytes read"),
+    ("fatload mmc 0:1 0x22100000 env-new.bin", r"4096 bytes read"),   # init #1 (карта чистая после перехвата)
     ("crc32 0x22100000 0x1000", "==> " + ENV_NEW_CRC),
     "env import -c 0x22100000 0x1000", "printenv bootcmd", "printenv norboot",
-    ("printenv sdboot", r"sdboot=mmc dev 0; mw\.l"),                 # v2: rescan нет
-    "run sdboot",
+    ("printenv sdboot", r"sdboot=mw\.l 0x22000000"),                 # v3: ни dev 0, ни rescan
+    "run sdboot",                                                     # fatload без повторной init → bootm
 ]
+# 29.09 00:40: репетиция v3 БЕЗ файла на p1 (камера на стоке, env-new-v3.bin ещё не залит): сначала fatload несуществующего
+# tf_update.img = ровно то, что делает сток до bootcmd (init #1 + поиск в FAT, «Unable to read file»), затем команды SDBOOT
+# построчно (из той же константы). ${sdargs} берётся из env v2 в NOR. После загрузки: grep mmc_core_init в логе — должен быть ОДИН.
+STAGES["2a-p4-env3"] = [("fatload mmc 0:1 0x22200000 tf_update.img", r"Unable to read file")] + [
+    (c, r"bytes read" if c.startswith("fatload") else None) for c in SDBOOT.split("; ")]
 # 28.09 22:25: ЕДИНСТВЕННАЯ запись в NOR (uboot/STOP-env.md): 4K env @0x4F000. Запускается ТОЛЬКО владельцем после «да» на STOP:
 #   NOR_WRITE=yes STAGE_WAIT=86400 nohup python3 uart/stage.py nor-env-write > /dev/null 2>&1 &
 # Без NOR_WRITE=yes этап отклоняется (FORBIDDEN). Каждый шаг (cmd, ожидаемый ответ): нет ответа → ABORT, дальше ничего
 # не шлём, камера остаётся в U-Boot (консоль через FIFO). До `sf erase` два гейта: блок в NOR crc32 ENV_OLD_CRC
-# и новый файл с p1 crc32 ENV_NEW_CRC (uboot/mkenv.py; 29.09 v2 — см. SDBOOT). После записи: sf read → crc32 → cmp.b, затем `reset` — U-Boot
+# и новый файл с p1 crc32 ENV_NEW_CRC (uboot/mkenv.py; 29.09 v3 — см. SDBOOT). После записи: sf read → crc32 → cmp.b, затем `reset` — U-Boot
 # перечитывает env из NOR и грузит карту сам; stage.py дальше ПАССИВЕН (Enter не шлёт, только лог + FIFO) = приёмка без Pi.
 # U-Boot 2015.01: `sf erase`/`sf write` печатают "Erased: OK"/"Written: OK", `cmp.b` — "were the same" (строки есть в стоковом
 # бинарнике, проверено 22:35; Read: OK / CRC32 / bytes read — в логах). После ABORT: доделать через FIFO, потом `echo '#passive' > FIFO`, `echo reset > FIFO`.
@@ -243,7 +248,7 @@ def main(stage):
             elif line.startswith(b"#stage "):   # 29.09: `#stage 2a-p4-env` — какой этап слать при СЛЕДУЮЩЕМ перехвате U-Boot
                 name = line.split()[1].decode(errors="replace")   # (после reboot -f), без перевзвода процесса владельцем.
                 if name in STAGES and name != WRITE_STAGE:        # только RAM-этапы: запись в NOR — отдельный запуск с NOR_WRITE=yes
-                    stage, cmds = name, [norm(c) for c in STAGES[name]]
+                    stage, cmds, passive = name, [norm(c) for c in STAGES[name]], False   # 00:40: и после пассивного этапа
                     say(f"\n--- #stage: следующий перехват U-Boot = этап {stage}")
                 else:
                     say(f"\n--- #stage {name}: отказ (нет такого или это {WRITE_STAGE})")
