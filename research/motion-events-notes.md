@@ -24,3 +24,18 @@
 
 ## Секрет
 `curl http://127.0.0.1:1984/api/streams` на Pi печатает URL с паролем root — вывод только через `sed "s/$PW/***/g"`.
+
+## Проверка 28.09 22:15 (motionDetect: enabled: true с загрузки 21:53, ONVIF PullPoint через curl — `tools/onvif-pull.sh`)
+- PullPoint РАБОТАЕТ: CreatePullPointSubscription → адрес `…/onvif/event_service?Idx=uuid:…`, PullMessages отдаёт начальное
+  состояние (MotionAlarm=false, CellMotionDetector/Motion IsMotion=false, Face=false, DetectedSound=false). Дальше — тишина:
+  ни поворот камеры на 400 полушагов, ни владелец в кадре событий не дают.
+- Причина: **в этой сборке majestic (Lite SigmaStar infinity6, master+17ec3ed, 2026-09-26) детектора движения НЕТ.** Строка в
+  бинарнике: «records.mode is motion, but this build has no motion detector: nothing will be recorded unless something else
+  calls it». `/api/v1/analytics` → `{"src":"motion","active":false,"w":0,"h":0}`; в бинарнике нет MI_VDF, в
+  /lib/modules/4.9.84/sigmastar нет mi_vdf.ko; POST/PUT на /api/v1/analytics ничего не включают. Лог majestic уходил в
+  /dev/null (S95majestic, syslogd не запущен) — 22:15 запущен `syslogd -O /tmp/messages -s 512 -b 1` (RAM), пусто.
+- Решение: **движение считает Pi — Frigate по `rtsp://192.168.1.139:8554/cam_sub` (704x576@15) через go2rtc**, события в
+  MQTT (Mosquitto на Pi есть) → HA. На камере ничего не меняем, MMA не трогаем. ONVIF-события majestic для HA бесполезны
+  (только начальное состояние). Запись клипов «по движению» на карту камеры (records.mode=motion) без внешнего триггера тоже
+  не работает — запись делает Frigate на Pi (диск 117 ГБ свободно). Ultimate-сборка majestic для infinity6 — проверить позже
+  (нужен mi_vdf.ko, которого в этом rootfs нет; выше риск по MMA).
