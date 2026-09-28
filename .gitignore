@@ -1,0 +1,41 @@
+# --- СЕКРЕТЫ (SSID/PSK владельца, MAC, хеш и пароль root, дампы NOR со своей конфигурацией) ---
+firmware/openipc-ipc017-20260926/p4/secret/
+spi/
+firmware/own-4.3.9_0445/
+uart/*.log
+uart/*.log.aborted
+uart/*.out
+uart/*.progress*
+uart/console.in
+uart/captures.txt
+logs/
+network/
+photos/
+research/disasm/
+research/reference-photos/
+# --- образы карты (содержат wpa.conf и shadow) ---
+*.img
+# --- большие бинарники и распакованные чужие прошивки (воспроизводятся из research/sources.md) ---
+*.bin
+*.zip
+*.tgz
+*.tar.gz
+*.jffs2
+*.deb
+*.so
+*.ko
+*.squashfs*
+*.pcm
+*.jpg
+*.jpeg
+*.png
+firmware/extracted-*/
+firmware/binwalk-*/
+firmware/openipc-ipc017-20260926/.venv/
+firmware/openipc-ipc017-20260926/p3/
+firmware/openipc-ipc017-20260926/uImage*
+firmware/openipc-ipc017-20260926/*.md5sum
+scripts/nmap-local/
+__pycache__/
+*.pyc
+.venv/

@@ -1,0 +1,7 @@
+Repository: grablya95/Xiaomi-360-MJSXJ05CM
+Release: stable (v1.2.2)
+Date: 2026-07-06T18:20:18Z
+Tarball URL: https://api.github.com/repos/grablya95/Xiaomi-360-MJSXJ05CM/tarball/stable
+Release asset: https://github.com/grablya95/Xiaomi-360-MJSXJ05CM/releases/download/stable/MJSXJ05CM-v1.2.2-stable-full.zip
+Asset size: 13162186 bytes
+Firmware: IPC019 / MJSXJ05CM — 3.5.1_0052

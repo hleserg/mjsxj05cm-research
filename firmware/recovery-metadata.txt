@@ -1,0 +1,28 @@
+tf_recovery-3.4.2_0062-github.img: sha256=53271c2d932d1b8f278f0ee815837ea52b838e1afe3d2150587daa7f94ee2e72
+  uImage=MVX2##I3g60b5603KL_LX318####[BR: os=5 arch=2 type=2 comp=3 CRC=OK
+  kernel_slot 0x000000-0x200000: sha256=45573966d0c4faa750f288ffb8a8ce89b8d0c4b8cca502384b9bef63515cced1 entropy=7.230
+  rootfs_slot 0x200000-0x960000: sha256=bd09e9dd6899f83f7e31aaac5bee9d2a8ea6891ff6a16c974e0211fff09f64da entropy=7.337
+  data_slot 0x960000-0xf90000: sha256=55defab24a90c7a1e73eb7119b6a18b59c6d74d10513ab8c7cb8bafc12c09840 entropy=4.061
+  trailer 0xf90000-0xf90050: sha256=02bc7530c272d123d2ac7798f81378daeb2357a273ff66c3cd70f3ed27a16dc7 entropy=5.978
+  squashfs_magic_offsets=['0x210000']
+tf_recovery-3.5.1_0052.img: sha256=c787e781729cbdbc60f95aa54f84aea2149015277b521a3385cd161b79ec034a
+  uImage=MVX2##I6gd0db123KL_LX409####[BR: os=5 arch=2 type=2 comp=3 CRC=OK
+  kernel_slot 0x000000-0x200000: sha256=f23c8d70390333a47402a11cbb1853645ec6b85e968ab34c9e8f1c084eef5085 entropy=6.780
+  rootfs_slot 0x200000-0x960000: sha256=49c9b67f3ac06f210b079319b2be6192ee02c5626105676899b25c8c2504da3f entropy=6.720
+  data_slot 0x960000-0xf90000: sha256=e1cf335f2db7a19f309763e6c1a1e4750ab577a551d3af30a75b43a8a80d467b entropy=5.624
+  trailer 0xf90000-0xf90050: sha256=ab47e383a946f43d6c3cd113d56d26cfec350f1bdc863e058f4fd4db31036789 entropy=5.978
+  squashfs_magic_offsets=['0x200000']
+tf_recovery.img: sha256=cfc2517048cb88d85ea6bc65bc726a8aa8b14c2b181b76ba14720716589d0412
+  uImage=MVX2##I6g46ec744KL_LX409####[BR: os=5 arch=2 type=2 comp=3 CRC=OK
+  kernel_slot 0x000000-0x200000: sha256=88f99ee16450d547475b45e947dc2ac10e1bf754b2e5b9d7e51033387c82de62 entropy=6.779
+  rootfs_slot 0x200000-0x960000: sha256=6456269eeb34e091a501a0187b99a3649ce340ef066f8f3dc47acea469958a54 entropy=6.751
+  data_slot 0x960000-0xf90000: sha256=e121ebb8ef306677dda8fb09265885b2da5fb57f29d80761ea49c28962a3716d entropy=6.043
+  trailer 0xf90000-0xf90050: sha256=30c467272cc6819b8aa7365e14b35e3ed026bae741802d1d04d05cfc44eaad15 entropy=6.053
+  squashfs_magic_offsets=['0x200000']
+tf_update.img: sha256=d940159a12c6c45928e84db5de84a6a1156bf4bb5602cb4ea4bd6f19fec728f2
+  uImage=MVX2##I6g46ec744KL_LX409####[BR: os=5 arch=2 type=2 comp=3 CRC=OK
+  kernel_slot 0x000000-0x200000: sha256=2b8aeb44517de2cd63a5b0ee5d5e7f1af7380daaa62099ecb65809f43faff520 entropy=6.780
+  rootfs_slot 0x200000-0x960000: sha256=5b03cb36c998ede73996fc6e7187410facefdba114a858c9b9fb87d8b06a85fb entropy=6.751
+  data_slot 0x960000-0xf90000: sha256=d60915c92a577d01356c4d2fb073e61f36bf3e174628a5604871b38dda72e4fe entropy=6.051
+  trailer 0xf90000-0xf90050: sha256=345d5561f10bb7cc9d06b8fd9144fc2b6d95072acb10f3e97d14f66e7ec4ff8c entropy=6.022
+  squashfs_magic_offsets=['0x200000']

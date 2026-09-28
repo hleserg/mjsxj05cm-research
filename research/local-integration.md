@@ -1,0 +1,9 @@
+# Локальная интеграция после получения root
+
+На stock `4.3.9_0445` локальный поток не найден. Камера отвечает на miIO hello по UDP 54321, но ответ не даёт пригодного токена; возможности control на этой версии не проверены. [python-miio](https://python-miio.readthedocs.io/en/stable/api/miio.chuangmi_camera.html) поддерживает ipc019 как модель, однако это не RTSP и не подтверждение работы команд на нашей камере. Архитектура ниже относится к будущему состоянию **после** отдельного согласования backup и изменения прошивки; на нашей камере ничего не менялось.
+
+1. На совместимой старой I6/LX409 системе наиболее конкретная база — [zry98/MJSXJ05CM-hacks](https://github.com/zry98/MJSXJ05CM-hacks): RTSP TCP 8554 `/mainstream` и `/substream`; ONVIF порт 5000 с частичным PTZ. Audio в опубликованном RTSP-коде не доказано. [cmiguelcabral/mjsxj05cm-hacks](https://github.com/cmiguelcabral/mjsxj05cm-hacks) относится к раннему 0062 пути, чей образ I3/LX318.
+2. [tsunglung/xiaomi-360-hacks](https://github.com/tsunglung/xiaomi-360-hacks) опирается на UART/U-Boot и flash write, поэтому сейчас запрещён. Общий [onvif_srvd](https://github.com/KoynovStas/onvif_srvd) требует IPC019 media/PTZ адаптер; готовой замены у него нет.
+3. После проверенного RTSP: камера → go2rtc → Home Assistant; для записи/детекции камера → Frigate → Home Assistant. PTZ — через подтверждённые ONVIF команды либо отдельный минимальный bridge. Автозапуск и отсутствие cloud dependency проверять только при обеспеченном rollback. Home Assistant пока не перенастраивали.
+
+Из старых firmware кодом подтверждён endpoint `https://dlg.io.mi.com/v1/upload` в `log2mi.sh` для условной отправки логов. Фактические DNS/P2P/live-stream endpoints **нашей** камеры не наблюдались: `dumpcap` и `tcpdump` здесь не получили права capture, а Wi-Fi клиент не видит unicast другой станции. Из кода нельзя заключать, что наша камера обращалась к этому URL.

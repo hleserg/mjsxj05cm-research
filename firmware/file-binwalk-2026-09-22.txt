@@ -1,0 +1,44 @@
+FILE mjsxj05cm-research/firmware/tf_recovery-3.4.2_0062-github.img
+mjsxj05cm-research/firmware/tf_recovery-3.4.2_0062-github.img: u-boot legacy uImage, MVX2##I3g60b5603KL_LX318####[BR:\3757zXZ, Linux/ARM, OS Kernel Image (lzma), 1724412 bytes, Wed Jun  6 07:02:07 2018, Load Address: 0X20008000, Entry Point: 0X20008000, Header CRC: 0X5799CFC3, Data CRC: 0X2FF27A1D
+
+DECIMAL       HEXADECIMAL     DESCRIPTION
+--------------------------------------------------------------------------------
+0             0x0             uImage header, header size: 64 bytes, header CRC: 0x5799CFC3, created: 2018-06-06 07:02:07, image size: 1724412 bytes, Data Address: 0x20008000, Entry Point: 0x20008000, data CRC: 0x2FF27A1D, OS: Linux, CPU: ARM, image type: OS Kernel Image, compression type: lzma, image name: "MVX2##I3g60b5603KL_LX318####[BR:"
+64            0x40            xz compressed data
+2162688       0x210000        Squashfs filesystem, little endian, version 4.0, compression:xz, size: 6502290 bytes, 2019 inodes, blocksize: 131072 bytes, created: 2018-06-06 07:02:05
+9830400       0x960000        JFFS2 filesystem, little endian
+
+
+FILE mjsxj05cm-research/firmware/tf_recovery-3.5.1_0052.img
+mjsxj05cm-research/firmware/tf_recovery-3.5.1_0052.img: u-boot legacy uImage, MVX2##I6gd0db123KL_LX409####[BR:\3757zXZ, Linux/ARM, OS Kernel Image (lzma), 1570356 bytes, Thu Aug 29 12:05:48 2019, Load Address: 0X20008000, Entry Point: 0X20008000, Header CRC: 0XAF5D405A, Data CRC: 0XA7F03281
+
+DECIMAL       HEXADECIMAL     DESCRIPTION
+--------------------------------------------------------------------------------
+0             0x0             uImage header, header size: 64 bytes, header CRC: 0xAF5D405A, created: 2019-08-29 12:05:48, image size: 1570356 bytes, Data Address: 0x20008000, Entry Point: 0x20008000, data CRC: 0xA7F03281, OS: Linux, CPU: ARM, image type: OS Kernel Image, compression type: lzma, image name: "MVX2##I6gd0db123KL_LX409####[BR:"
+64            0x40            xz compressed data
+2097152       0x200000        Squashfs filesystem, little endian, version 4.0, compression:xz, size: 5716954 bytes, 2068 inodes, blocksize: 131072 bytes, created: 2019-08-29 12:10:36
+9830400       0x960000        JFFS2 filesystem, little endian
+
+
+FILE mjsxj05cm-research/firmware/extracted-4.0.9_0426-images/tf_recovery.img
+mjsxj05cm-research/firmware/extracted-4.0.9_0426-images/tf_recovery.img: u-boot legacy uImage, MVX2##I6g46ec744KL_LX409####[BR:\3757zXZ, Linux/ARM, OS Kernel Image (lzma), 1569760 bytes, Wed Aug 26 04:42:06 2020, Load Address: 0X20008000, Entry Point: 0X20008000, Header CRC: 0X64D4F290, Data CRC: 0X1E9BDE06
+
+DECIMAL       HEXADECIMAL     DESCRIPTION
+--------------------------------------------------------------------------------
+0             0x0             uImage header, header size: 64 bytes, header CRC: 0x64D4F290, created: 2020-08-26 04:42:06, image size: 1569760 bytes, Data Address: 0x20008000, Entry Point: 0x20008000, data CRC: 0x1E9BDE06, OS: Linux, CPU: ARM, image type: OS Kernel Image, compression type: lzma, image name: "MVX2##I6g46ec744KL_LX409####[BR:"
+64            0x40            xz compressed data
+2097152       0x200000        Squashfs filesystem, little endian, version 4.0, compression:xz, size: 5751674 bytes, 2074 inodes, blocksize: 131072 bytes, created: 2020-08-26 04:47:32
+9830400       0x960000        JFFS2 filesystem, little endian
+
+
+FILE mjsxj05cm-research/firmware/extracted-4.0.9_0426-images/tf_update.img
+mjsxj05cm-research/firmware/extracted-4.0.9_0426-images/tf_update.img: u-boot legacy uImage, MVX2##I6g46ec744KL_LX409####[BR:\3757zXZ, Linux/ARM, OS Kernel Image (lzma), 1570076 bytes, Tue Sep 15 07:54:37 2020, Load Address: 0X20008000, Entry Point: 0X20008000, Header CRC: 0XE0A21613, Data CRC: 0X35A3D3E8
+
+DECIMAL       HEXADECIMAL     DESCRIPTION
+--------------------------------------------------------------------------------
+0             0x0             uImage header, header size: 64 bytes, header CRC: 0xE0A21613, created: 2020-09-15 07:54:37, image size: 1570076 bytes, Data Address: 0x20008000, Entry Point: 0x20008000, data CRC: 0x35A3D3E8, OS: Linux, CPU: ARM, image type: OS Kernel Image, compression type: lzma, image name: "MVX2##I6g46ec744KL_LX409####[BR:"
+64            0x40            xz compressed data
+2097152       0x200000        Squashfs filesystem, little endian, version 4.0, compression:xz, size: 5752794 bytes, 2075 inodes, blocksize: 131072 bytes, created: 2020-09-15 07:59:55
+9830400       0x960000        JFFS2 filesystem, little endian
+
+

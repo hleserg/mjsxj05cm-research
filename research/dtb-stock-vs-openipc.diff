@@ -1,0 +1,20 @@
+--- /tmp/claude-1000/-home-hleserg-xiaomi360/cbe78943-26b1-43bf-b718-521ff549d46c/scratchpad/stock.dts	2026-09-27 22:57:31.235661296 +0300
++++ /tmp/claude-1000/-home-hleserg-xiaomi360/cbe78943-26b1-43bf-b718-521ff549d46c/scratchpad/oi.dts	2026-09-27 22:57:31.231661295 +0300
+@@ -2281,7 +2281,7 @@
+ 			micin-pregain-level = <0x00>;
+ 			micin-gain-level = <0x03>;
+ 			linein-gain-level = <0x02>;
+-			amp-gpio = <0x3e 0x01>;
++			amp-gpio = <0xffff 0x01>;
+ 			clocks = <0x50>;
+ 			digmic-padmux = <0x01>;
+ 			i2s-padmux = <0x01>;
+@@ -2391,7 +2391,7 @@
+ 			reg = <0x1f003400 0x600>;
+ 			clocks = <0x0c>;
+ 			npwm = <0x0b>;
+-			pad-ctrl = <0x34 0x35 0xffff 0xffff 0x2c 0x2d 0x2e 0x2f 0xffff 0xffff 0xffff>;
++			pad-ctrl = <0x34 0x35 0xffff 0xffff 0xffff 0xffff 0xffff 0xffff 0xffff 0xffff 0xffff>;
+ 			status = "ok";
+ 		};
+ 

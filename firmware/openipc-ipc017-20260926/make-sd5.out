@@ -1,0 +1,22 @@
+squashfs-root/etc/wireless/usb
+squashfs-root/init4.sh
+squashfs-root/lib/modules/4.9.84/extra/mt7601sta.ko
+squashfs-root/shadow4
+squashfs-root/usr/sbin/dropbear
+squashfs-root/wpa.conf
+Partition #1 contains a vfat signature.
+Partition #2 contains a squashfs signature.
+p1/p2 не изменились (MBR переписан sfdisk — ожидаемо)
+7e8173f89ff37beba05e8778abc5dc0e248da4caee7c052d2ff8079c22bda656  sd-stage5.img
+Disk sd-stage5.img: 89 MiB, 93323264 bytes, 182272 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disklabel type: dos
+Disk identifier: 0xef86db7f
+
+Device         Boot  Start    End Sectors Size Id Type
+sd-stage5.img1 *      2048 133119  131072  64M  c W95 FAT32 (LBA)
+sd-stage5.img2      133120 149503   16384   8M 83 Linux
+sd-stage5.img3      149504 182271   32768  16M 83 Linux
+Запись (владелец, X = буква карты из lsblk): sudo dd if=/home/hleserg/mjsxj05cm-research/firmware/openipc-ipc017-20260926/sd-stage5.img of=/dev/sdX bs=4M conv=fsync status=progress && sudo cmp -n 93323264 /home/hleserg/mjsxj05cm-research/firmware/openipc-ipc017-20260926/sd-stage5.img /dev/sdX && echo CARD_OK

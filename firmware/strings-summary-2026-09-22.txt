@@ -1,0 +1,35 @@
+FILE mjsxj05cm-research/firmware/extracted-3.5.1_0052-data/bin/miio_ota
+X509_verify_cert_error_string
+EVP_VerifyFinal
+X509_verify_cert
+ca chain verify : %s
+EVP verify resut %s
+Can't not to verify.
+ota verify success.
+ota verify fail.
+ca verify error.
+download md5 vertify and sigin verify successfully, start to write flash
+
+FILE mjsxj05cm-research/firmware/extracted-3.5.1_0052-data/bin/miio_sdcard
+/mnt/sdcard/tf_recovery.img
+/mnt/sdcard/tf_recovery.img.bak
+Rename tf_recovery.img: %s
+
+FILE mjsxj05cm-research/firmware/extracted-4.0.9_0426-update-data/bin/miio_ota
+X509_verify_cert_error_string
+EVP_VerifyFinal
+X509_verify_cert
+ca chain verify : %s
+EVP verify resut %s
+Can't not to verify.
+ota verify success.
+ota verify fail.
+ca verify error.
+download md5 vertify and sigin verify successfully, start to write flash
+
+FILE mjsxj05cm-research/firmware/extracted-4.0.9_0426-update-data/bin/miio_sdcard
+/mnt/sdcard/tf_recovery.img
+/mnt/sdcard/tf_recovery.img.bak
+Rename tf_recovery.img: %s
+json_verify_get_int
+

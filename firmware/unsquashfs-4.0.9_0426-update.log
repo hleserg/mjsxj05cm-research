@@ -1,0 +1,14 @@
+
+create_inode: could not create character device mjsxj05cm-research/firmware/extracted-4.0.9_0426-update/dev/console, because you're not superuser!
+Parallel unsquashfs: Using 4 processors
+2332 inodes (1208 blocks) to write
+
+[=====================================================/        ] 3114/3540  87%[============================================================/ ] 3539/3540  99%
+
+created 1196 files
+created 158 directories
+created 720 symlinks
+created 0 devices
+created 0 fifos
+created 0 sockets
+created 415 hardlinks
