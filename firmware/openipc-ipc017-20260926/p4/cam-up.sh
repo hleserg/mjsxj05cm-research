@@ -11,8 +11,9 @@ done
 lsmod | grep -q "^sensor_gc2053_mipi " || insmod $M/sensor_gc2053_mipi.ko chmap=1 || echo "FAIL sensor"
 # watchdog majestic ВЫКЛ (ребут 28.09 12:33 при нехватке MMA); конфиг подменяем bind-mount, /etc read-only.
 # аудио включаем ДО первого старта majestic: каждый рестарт majestic течёт по MMA (сбросы 12:33 и 16:37).
-# 28.09 21:52: SUB (video1 704x576@15) включаем после heap-теста (mma_heap 0x1800000) — отдельный ребут; motionDetect — следующим ребутом.
+# 28.09 21:52: SUB (video1 704x576@15) включаем после heap-теста (mma_heap 0x1800000) — отдельный ребут; motionDetect — ребут #3 (21:55, после SUB ОК).
 sed -e '/^video1:/,/^[a-z]/ s/enabled: false/enabled: true/' \
+    -e '/^motionDetect:/,/^[a-z]/ s/enabled: false/enabled: true/' \
     -e '/^watchdog:/,/^[a-z]/ s/enabled: true/enabled: false/' \
     -e '/^audio:/,/^[a-z]/ { s/enabled: false/enabled: true/; s/outputEnabled: false/outputEnabled: true/; s/  volume: 30/  volume: 100/; s/outputVolume: 30/outputVolume: 60/ }' /etc/majestic.yaml > /tmp/m.yaml
 grep -A2 '^watchdog:' /tmp/m.yaml
