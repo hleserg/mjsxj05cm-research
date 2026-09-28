@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+"""Собрать новый 4K-блок U-Boot env (0x4F000) из стокового дампа: bootcmd = карта (SD p3, init4.sh), откат на NOR.
+Только готовит файл и печатает sha256 старого/нового блока для STOP-запроса. ВО FLASH НИЧЕГО НЕ ПИШЕТ.
+  python3 uboot/mkenv.py [out.bin]      # out по умолчанию — /tmp/env-new.bin (содержит MAC → не в репо)
+  MMA_SZ=0x1800000 python3 uboot/mkenv.py   # куча как в uart/stage.py
+Факты (research/uboot-env-notes.md 28.09): env @0x4F000 размер 0x1000, CRC32 первых 4 байт по остальным 4092,
+переменные 'k=v\\0', конец '\\0\\0', хвост нулями (так пишет saveenv); saveenv стирает только этот 4K-сектор;
+парсер U-Boot простой (без if/then): команды через ';' идут все подряд, поэтому mw.l гасит magic перед fatload,
+чтобы без карты bootm не подхватил старое ядро из DRAM, а прошёл дальше к NOR.
+"""
+import hashlib, os, re, struct, sys, zlib
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "uart"))
+from stage import SD_ARGS, SDBOOT, NORBOOT  # noqa: E402  — единый источник с uart/stage.py (MMA_SZ учитывается там)
+
+OFF, SIZE = 0x4F000, 0x1000
+
+
+def parse(blk):
+    crc, = struct.unpack("<I", blk[:4])
+    assert crc == zlib.crc32(blk[4:]) & 0xFFFFFFFF, "CRC стокового env не сходится"
+    end = blk.find(b"\0\0", 4)
+    return dict(kv.decode().split("=", 1) for kv in blk[4:end].split(b"\0"))
+
+
+def build(env):
+    body = b"".join(f"{k}={v}".encode() + b"\0" for k, v in sorted(env.items())) + b"\0"
+    assert len(body) <= SIZE - 4, "env не влезает в 4092 байта"
+    body = body.ljust(SIZE - 4, b"\0")
+    return struct.pack("<I", zlib.crc32(body) & 0xFFFFFFFF) + body
+
+
+def mask(s):
+    return re.sub(r"([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}", "MAC", re.sub(r"(\d+\.){3}\d+", "IP", s))
+
+
+def main(out):
+    old = (ROOT / "spi/original-01.bin").read_bytes()[OFF:OFF + SIZE]
+    env = parse(old)
+    assert build(env) == old, "пересборка стокового env не побайтовая — формат понят неверно"
+    new_env = dict(env, bootcmd="run sdboot; run norboot", sdboot=SDBOOT, norboot=NORBOOT,
+                   sdargs=SD_ARGS, norargs=env["bootargs"])
+    new = build(new_env)
+    Path(out).write_bytes(new)
+    print(f"смещение 0x{OFF:X} размер 0x{SIZE:X}\nsha256 старого: {hashlib.sha256(old).hexdigest()}\nsha256 нового:  {hashlib.sha256(new).hexdigest()}\nфайл: {out} ({len(new)} Б, занято {new.find(b'\0\0', 4) + 2} Б)")
+    for k in sorted(new_env):
+        if new_env[k] != env.get(k):
+            print(f"  {'+' if k not in env else '~'} {k}={mask(new_env[k])}")
+    print("Проверка формата: parse(build(new)) == new_env:", parse(new) == new_env)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1] if len(sys.argv) > 1 else "/tmp/env-new.bin")

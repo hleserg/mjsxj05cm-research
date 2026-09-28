@@ -73,6 +73,9 @@ STAGES = {
         f"setenv bootargs console=ttyS0,115200 root=/dev/mmcblk0p3 rootwait rootfstype=squashfs init=/bin/sh /init4.sh {MEM}",
         "bootm 0x22000000",
     ],
+    # 28.09 21:30: репетиция будущего env (uboot/mkenv.py) в RAM — те же переменные, что пойдут в NOR, но через setenv без saveenv.
+    # Проверяет парсер стокового U-Boot (без hush: `run`, ${}, mw.l). Гонять ОТДЕЛЬНЫМ ребутом после heap-теста.
+    # (этап "2a-p4-env" добавляется ниже, после SD_ARGS/SDBOOT)
     "2a": SD_PRE + [
         f"setenv bootargs console=ttyS0,115200 root=/dev/mmcblk0p2 rootwait rootfstype=squashfs init=/bin/sh {MEM}",
         "bootm 0x22000000",
@@ -82,6 +85,11 @@ STAGES = {
         "bootm 0x22000000",
     ],
 }
+SD_ARGS = STAGES["2a-p4"][-2].split(" ", 2)[2]   # bootargs карты — единый источник для mkenv.py и этапа 2a-p4-env
+SDBOOT = "mmc dev 0; mmc rescan; mw.l 0x22000000 0 4; fatload mmc 0:1 0x22000000 uImage.ssc325; setenv bootargs ${sdargs}; bootm 0x22000000"
+NORBOOT = "sf probe 0; sf read 0x22000000 ${sf_kernel_start} ${sf_kernel_size}; setenv bootargs ${norargs}; bootm 0x22000000"
+# Простой парсер U-Boot (без hush): текст в одинарных кавычках не режется по ';' и ${} в нём не раскрывается до `run` (README U-Boot, "Command Line Parsing").
+STAGES["2a-p4-env"] = [f"setenv sdargs {SD_ARGS}", f"setenv sdboot '{SDBOOT}'", "run sdboot"]
 RESET = re.compile(rb"(^|\n)IPL[ _]")   # баннер IPL в начале строки = камера сбросилась (после загрузки ядра)
 FORBIDDEN = re.compile(r"\b(saveenv|sf\s+(erase|write|update)|erase|update|upgrade|flashcp|nand)\b")
 PROMPT = re.compile(rb"\n([^\r\n#]{1,24})# ")
@@ -143,7 +151,7 @@ def main(stage):
             t = time.time() + 30
             while time.time() < t and buf.rfind(prompt) <= mark + len(c):
                 rx()
-                if c.startswith("bootm") and b"Starting kernel" in buf[mark:]:
+                if c.startswith(("bootm", "run ")) and b"Starting kernel" in buf[mark:]:
                     break
         print(f"\n--- команды этапа {stage} посланы; консоль: echo CMD > {FIFO} ; лог {out}", flush=True)
         buf = b""

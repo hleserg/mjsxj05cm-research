@@ -39,3 +39,6 @@ scripts/nmap-local/
 __pycache__/
 *.pyc
 .venv/
+
+# 28.09: собранные env-блоки U-Boot (MAC внутри)
+uboot/*.bin
