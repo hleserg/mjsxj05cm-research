@@ -103,7 +103,8 @@ STAGES["2a-p4-env"] = [
 # не шлём, камера остаётся в U-Boot (консоль через FIFO). До `sf erase` два гейта: старый блок в NOR crc32 6c1674b6
 # и новый файл с p1 crc32 b8213e13 (uboot/mkenv.py). После записи: sf read → crc32 → cmp.b, затем `reset` — U-Boot
 # перечитывает env из NOR и грузит карту сам; stage.py дальше ПАССИВЕН (Enter не шлёт, только лог + FIFO) = приёмка без Pi.
-# U-Boot 2015.01: `sf erase`/`sf write` печатают "Erased: OK"/"Written: OK", `cmp.b` — "were the same".
+# U-Boot 2015.01: `sf erase`/`sf write` печатают "Erased: OK"/"Written: OK", `cmp.b` — "were the same" (строки есть в стоковом
+# бинарнике, проверено 22:35; Read: OK / CRC32 / bytes read — в логах). После ABORT: доделать через FIFO, потом `echo '#passive' > FIFO`, `echo reset > FIFO`.
 WRITE_STAGE = "nor-env-write"
 ENV_OLD_CRC, ENV_NEW_CRC = os.environ.get("ENV_OLD_CRC", "6c1674b6"), os.environ.get("ENV_NEW_CRC", "b8213e13")
 STAGES[WRITE_STAGE] = [
@@ -221,7 +222,10 @@ def main(stage):
                 line = os.read(fd, 4096)
             except BlockingIOError:
                 line = b""
-            if line:
+            if line.startswith(b"#passive"):   # управление, в порт не идёт: после ручного дописывания/отката через FIFO
+                passive = True                   # (ABORT, затем `reset` руками) не ловить U-Boot заново — дать автозагрузку
+                print("\n--- #passive: Enter больше не шлю", flush=True)
+            elif line:
                 port.write(line.rstrip(b"\n") + b"\n")
             else:
                 time.sleep(0.02)
