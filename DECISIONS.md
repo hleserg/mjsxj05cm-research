@@ -642,3 +642,32 @@ U-Boot — перед каждой загрузкой с карты переза
   в начале sdboot (no-op, если кэш уже выкл). Любой v4 = четвёртая запись NOR: планка — «механизм воспроизведён в приглашении», не
   «вариант, который случайно прошёл»; STOP + новое «да».
 - Параллельно без ребута: explorer по ub.dis/disasm — что делает сток между «read file … error» и bootcmd (кэш, регистры SD).
+
+## 29.09 02:52 — дизасм стокового U-Boot: во время bootcmd D-кэш и MMU ВКЛЮЧЕНЫ, в приглашении — выключены (причина падений v1/v2/v3)
+
+Проверено по `ub.dis` (scratchpad, база 0x23E00000), функция автозагрузки около 0x23e014e0 (сток = U-Boot `autoboot_command` + свои вставки):
+```
+23e014e0 bl 0x23e058d4          ; проверка (0 → идём дальше)
+23e014ec bl 0x23e05aa4          ; проверка tf_update.img (внутри: mmc init #1, memset(sp,0,1024), fatload)
+23e014f0 mov r0,#1; bl 0x23e07bc0   ; prev = disable_ctrlc(1)   (стандартный autoboot_command)
+23e014fc bl 0x23e01038          ; dcache_enable: если MMU выкл — строит таблицу (4096 секций, флаг 0x12), TTBR(cr2)=gd->tlb_addr,
+                                ;   DACR(cr3)=-1, SCTLR |= 1 (MMU), затем SCTLR |= 4 (D-кэш)   — 0x23e01088/0x23e01098
+23e01500 bl 0x23e00ff8          ; icache_enable: SCTLR |= 0x1000 (бит 12)
+23e01510 mov r1,#-1; r2=0; r0=bootcmd; bl 0x23e098b4   ; run_command_list(bootcmd, -1, 0)
+23e01514 bl 0x23e010a4          ; dcache_disable: flush (0x23e004a0), SCTLR &= ~5 (MMU+D)
+23e01518 bl 0x23e01010          ; icache_disable
+23e0151c mov r0,r4; bl 0x23e07bc0   ; disable_ctrlc(prev)
+```
+Вывод: **`bootcmd` (наш `sdboot`) исполняется с включёнными MMU+D-кэшем+I-кэшем; перехват Enter'ом (abortboot≠0) этот блок пропускает —
+в приглашении кэш выключен.** Поэтому все репетиции по UART (v1/v2/v3, 005522) проходили, а автозагрузка (v1/v2/v3) падала:
+драйвер mmc (DMA) кладёт блок 0 в RAM, CPU читает через D-кэш (грязные/устаревшие строки после memset/mw → «bad MBR 0x0000»,
+«No partition table»). Инвалидации кэша вокруг DMA в драйвере нет (explorer 02:4x: ни одного `mcr … c7` в 0x23e0590c и mmc-пути).
+Замечание к отчёту explorer: 0x23e00ff8 — это I-кэш (бит 12), не D; D-кэш включает 0x23e01038 (бит 2) строкой раньше — суть та же.
+
+Следствия для эксперимента `2a-p4-sdtest` (критерии 02:42 остаются):
+- **K1 (`dcache on; fatload tf; fatload uImage`) = точное воспроизведение автозагрузки** (dcache on = та же 0x23e01038). Ожидаю отказ.
+- **K2 (`dcache on; fatload tf; dcache off; fatload uImage`) = кандидат v4.** Ожидаю `bytes read`. K0 — прямое доказательство некогерентности.
+- Кандидат v4: `sdboot=dcache off; mw.l 0x22000000 0 4; fatload …; setenv bootargs ${sdargs}; bootm 0x22000000`. `dcache off` → 0x23e010a4:
+  flush + MMU/D выкл, состояние как в приглашении; `bootm` перед ядром и так гасит кэши (cleanup_before_linux). NOR не трогает, RAM-only.
+- Планка advisor («механизм воспроизведён в приглашении») достижима: K1 падает, K2 проходит, K0 показывает 00 00 → 55 aa.
+Пишу v4 ТОЛЬКО после результата эксперимента и нового STOP + «да» владельца.
