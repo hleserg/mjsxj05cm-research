@@ -538,3 +538,11 @@ U-Boot — перед каждой загрузкой с карты переза
 - Каждая команда с гейтом по ответу U-Boot: `sf probe` → `SF: Detected`; `sf read` старого блока → `Read: OK` и `crc32` `==> 6c1674b6` (в NOR ещё сток, иначе ABORT до erase); `fatload env-new.bin` → `4096 bytes read`, `crc32` `==> b8213e13`; `sf erase` → `Erased: OK`; `sf write` → `Written: OK`; `sf read` обратно → `==> b8213e13` и `cmp.b` → `were the same`; `reset`. Строки Erased/Written/were the same есть в стоковом бинарнике U-Boot (2015.01), Read: OK/CRC32/bytes read — в наших логах.
 - Нет ответа → `ABORT`: ничего дальше не шлётся, камера остаётся в U-Boot, доделать/откатить можно через `uart/console.in` (env-old.bin на p1, ожидать `==> 6c1674b6`), затем `#passive` в FIFO и `reset`. Худший промежуточный исход (после erase, до write) — сектор FF = default env = приглашение U-Boot, не кирпич.
 - После успешного `reset` stage.py пассивен (Enter не шлёт) — это и есть приёмка автозагрузки по env из NOR. Пока работает/после `nor-env-write` НЕ запускать рядом `stage.py 2a-p4` (один UART, Enter сорвёт автозагрузку). Честно про кирпич: программатора нет; этап туда не пишет (адреса записи только 0x4F000/0x1000).
+
+## 28.09 23:10 — RAM-репетиция env прошла: env-new.bin (b8213e13) грузит карту через bootcmd
+
+**Факт.** Этап `2a-p4-env`: U-Boot прочитал env-new.bin с p1, crc32 совпал, `env import -c`, `run bootcmd` → `sdboot` → ядро с карты → INIT4 → SSH → majestic, mma fail 0. Тот же 4K-блок пойдёт в NOR.
+
+**Находка.** `env import` не может перезаписать `ethaddr` (U-Boot без CONFIG_ENV_OVERWRITE) — печатает ошибку, но импортирует остальное. Не относится к `sf write` (MAC в блоке стоковый).
+
+**Решение.** STOP-запрос (uboot/STOP-env.md) выдан владельцу как есть; запись — только после его явного «да» и только этапом `nor-env-write`. Не проверено до записи: ветка `norboot` без карты (только физически, после записи).
