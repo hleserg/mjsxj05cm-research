@@ -124,11 +124,22 @@ STAGES["2a-p4-env3"] = [("fatload mmc 0:1 0x22200000 tf_update.img", r"Unable to
 # (вывод в UART ~1 с). Результат считаю по логу: «bytes read» = ОК, «bad MBR|Invalid partition|Unable» = отказ. В конце
 # грузим OpenIPC (SDBOOT построчно), чтобы камера была доступна по SSH.
 _TF, _UI = "fatload mmc 0:1 0x22200000 tf_update.img", "fatload mmc 0:1 0x22000000 uImage.ssc325"
-STAGES["2a-p4-sdtest"] = (   # `echo` в help стока нет — пробы различаю по тексту команды в логе (порядок: A×4, D×3, B×3, C×3)
+# Advisor 02:40: против «тайминга» — в v2 полная re-init (такты 300k→32M, десятки мс) всё равно дала нули; нули (не мусор) +
+# ОК при наборе руками → похоже на состояние U-Boot после стоковой проверки tf_update (её мой fatload не воспроизводит), самый
+# дешёвый кандидат — включённый dcache при DMA без invalidate. Пробы с dcache — ПОСЛЕДНИМИ (не портить ранние), `dcache on/off`
+# = только кэш CPU, RAM, ничего постоянного (решение записано в DECISIONS 02:4x). Только A0 = «init → tf fail → uImage», A1..A3 —
+# карта уже инициализирована; читать A0 отдельно. Все A прошли → мой fatload не воспроизводит стоковый триггер, B/C/D о v4 не говорят.
+STAGES["2a-p4-sdtest"] = (   # `echo` в help стока нет — пробы различаю по тексту команды в логе (порядок: A×4, D×3, B×3, C×3, S, K…)
+    ["dcache"] +                                                                  # состояние кэша в приглашении (только запрос)
     [f"{_TF}; {_UI}"] * 4 +                                                       # A: как в автозагрузке (мс между fatload)
     [f"{_TF}; mmc read 0x22400000 0 1; md.b 0x224001fe 2; {_UI}"] * 3 +           # D: холостое чтение блока 0 (+ видно 55aa/0000)
     [f"{_TF}; crc32 0x20000000 0x2000000; {_UI}"] * 3 +                           # B: задержка ~0.3 с без UART
     [f"{_TF}; md.l 0x22200000 0x400; {_UI}"] * 3 +                                # C: задержка ~1 с (вывод в UART)
+    [f"{_TF}; sleep 1; {_UI}"] +                                                  # S: help в логе неполон (printenv есть) — вдруг sleep есть
+    ["dcache on; mw.b 0x22400000 0 0x200; mmc read 0x22400000 0 1; md.b 0x224001fe 2; dcache off; md.b 0x224001fe 2"] +  # K0: когерентность
+    [f"dcache on; {_TF}; {_UI}"] * 2 +                                            # K1: с кэшем, как (возможно) в автозагрузке
+    [f"dcache on; {_TF}; dcache off; {_UI}"] * 2 +                                # K2: кандидат v4 = `dcache off` перед fatload
+    ["dcache off"] +
     [(c, r"bytes read" if c.startswith("fatload") else None) for c in SDBOOT.split("; ")])
 # 28.09 22:25: ЕДИНСТВЕННАЯ запись в NOR (uboot/STOP-env.md): 4K env @0x4F000. Запускается ТОЛЬКО владельцем после «да» на STOP:
 #   NOR_WRITE=yes STAGE_WAIT=86400 nohup python3 uart/stage.py nor-env-write > /dev/null 2>&1 &
