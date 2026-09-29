@@ -11,7 +11,9 @@
 - **Лечение (кандидат v4):** `sdboot=dcache off; mw.l 0x22000000 0 4; fatload mmc 0:1 0x22000000 uImage.ssc325; setenv bootargs ${sdargs}; bootm 0x22000000`.
   Одно слово `dcache off;` в начале. Пишется ТОЛЬКО после эксперимента ниже, нового STOP (uboot/STOP-env.md → v4) и явного «да».
 
-## Следующий шаг — эксперимент `2a-p4-sdtest` (RAM, NOR не трогает)
+## 03:03 ЭКСПЕРИМЕНТ ВЫПОЛНЕН (DECISIONS 03:03): 13/13 проб без кэша ОК; K0 — с D-кэшем DMA-данные CPU не видит (00 00); K1 (`dcache on` + fatload = автозагрузка) — мусорная FAT-цепочка, U-Boot завис на чтении карты. Механизм доказан → v4 = `dcache off;` в начале sdboot. K2 не выполнилась (нет приглашения). Камера в U-Boot гоняет карту: питание → сток. Раздел ниже — история, что было запланировано:
+
+## (выполнено) эксперимент `2a-p4-sdtest`
 Этап готов в `uart/stage.py` (коммиты a01f2a5, 1c49b30), критерии заранее в DECISIONS 02:42/02:52. Не запускался (владелец остановился 02:57).
 1. На малинке после перезагрузки (владелец, через `!`):
    `cd ~/mjsxj05cm-research; for p in $(pgrep -f "stage.py"); do [ "$p" != "$$" ] && kill $p; done; STAGE_WAIT=86400 nohup python3 uart/stage.py 2a-p4-sdtest > /dev/null 2>&1 &`
@@ -25,6 +27,13 @@
    `env-new-v4.bin` на p1 через `tools/p1-put.sh` когда OpenIPC поднят) → AskUserQuestion «да» → владелец через `!`:
    `NOR_WRITE=yes ENV_OLD_CRC=18901e20 ENV_NEW_CRC=<v4> STAGE_WAIT=86400 nohup python3 uart/stage.py nor-env-write …` → `reboot -f` → приёмка холодным стартом.
    Если K1 тоже проходит — механизм не воспроизведён, v4 не писать; глубже в дизасм (что ещё меняет автозагрузка) или загрузка с помощью Pi.
+
+## Следующая сессия (порядок)
+1. Владелец через `!`: перевзвод `STAGE_WAIT=86400 nohup python3 uart/stage.py 2a-p4-env3` (RAM-загрузка OpenIPC как 00:55) → `reboot` камеры → OpenIPC.
+2. В `uart/stage.py` SDBOOT = `dcache off; mw.l …` (один префикс); `python3 uboot/mkenv.py` → `uboot/env-new-v4.bin` (gitignored) → crc32 → `tools/p1-put.sh uboot/env-new-v4.bin`.
+3. Репетиция v4 в RAM: `#stage 2a-p4-env` через FIFO (`env import -c` блока с p1 → `run sdboot`), `reboot -f` → ожидаю bytes read → INIT4. Это заменяет K2.
+4. STOP v4 в uboot/STOP-env.md (гейты `ENV_OLD_CRC=18901e20`, `ENV_NEW_CRC=<v4>`), AskUserQuestion → «да» → владелец `NOR_WRITE=yes ENV_OLD_CRC=18901e20 ENV_NEW_CRC=<v4> … stage.py nor-env-write`.
+5. Приёмка холодным стартом (ниже).
 
 ## После рабочего env (приёмка)
 Холодный старт → INIT4/SSH/CAM_UP без Pi; карта вынута → сток; карта обратно. stage.py остановить. Потом: отмашка владельцу (HA-поток,
