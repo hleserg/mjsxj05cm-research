@@ -82,3 +82,4 @@ STATUS.md, FULL-CONTROL-ACCEPTANCE.md.
 - После п.3: владелец останавливает stage.py (`! pkill -f "^python3 uart/stage.py"`), обновить STATUS/FULL-CONTROL-ACCEPTANCE, advisor, отмашка HA/Onvifer/Frigate, план p4.
 - 16:42: (3) карта назад → OpenIPC ✔ (SSH, majestic 637, mma fail 0). Приёмка 3/3. Дальше: владелец останавливает stage.py; отмашка; план p4.
 - 16:59: p4 на карте готов, records majestic пишутся в /tmp/p4 (см. STATUS). Дальше: HTTP-скачивание записей (majestic /api/v1/records → 405 на GET, изучить), отмашка HA/Onvifer/Frigate-лица, Мара↔Frigate.
+- 17:01: busybox sed принимает `-e ""` (ветка без p4 в cam-up.sh безопасна). Ротация records при maxUsage 90 НЕ проверена — карта заполнится ~30.09 вечером (~1 ГБ/ч); это проверка, переводящая пункт SD в [x]. В /tmp/p4/%F лежит `motion-%F.jsonl` (0 байт) — путь motionDetect majestic; если начнёт расти — локальный источник событий (research/motion-events-notes.md).
