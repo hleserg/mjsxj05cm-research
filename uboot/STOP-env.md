@@ -53,7 +53,7 @@
 `Erased: OK` → `Written: OK` → `Read: OK` → `==> 25f375ed` → `were the same` → `reset` → stage.py пассивен (приёмка автозагрузки).
 Запуск — только владелец, через `!`, после «да»:
 ```
-cd ~/mjsxj05cm-research; kill $(pgrep -f "python3 uart/stage.py"); sleep 1; NOR_WRITE=yes ENV_OLD_CRC=18901e20 ENV_NEW_CRC=25f375ed STAGE_WAIT=86400 nohup python3 uart/stage.py nor-env-write > /dev/null 2>&1 &
+cd ~/mjsxj05cm-research; pkill -f "^python3 uart/stage.py"; sleep 1; NOR_WRITE=yes ENV_OLD_CRC=18901e20 ENV_NEW_CRC=25f375ed STAGE_WAIT=86400 nohup python3 uart/stage.py nor-env-write > /dev/null 2>&1 &
 ```
 затем я: `python3 uart/camssh.py 'reboot -f'` → stage.py ловит U-Boot → этап → `reset` → U-Boot грузит карту сам.
 ```
