@@ -60,3 +60,16 @@ STATUS.md, FULL-CONTROL-ACCEPTANCE.md.
 Секреты (SSID/PSK/MAC/root/ONVIF-пароль) не печатать; любая запись в NOR — только владелец через `!` после STOP + «да»; stage.py запускает/убивает
 только владелец через `!`; один UART — не запускать два stage.py; `tf_update.img` на карте не создавать; majestic не рестартовать (MMA).
 Полный список — в верхней части этого репо: DECISIONS.md, STATUS.md, uboot/STOP-env.md.
+
+## 29.09 15:07 — СТОП ПЕРЕД РЕБУТОМ Pi (владелец перезагружает Pi)
+
+**Состояние.** Репетиция v4 (`2a-p4-env4`: dcache on → run sdboot) ПРОЙДЕНА 14:48, лог `uart/stage-2a-p4-env4-20260929-144726.log`. STOP v4 заполнен (`uboot/STOP-env.md`), владелец ответил **«Да, пиши env v4»** (15:0x). Запись в NOR **ЕЩЁ НЕ ДЕЛАЛАСЬ**: первая команда запуска содержала синтаксическую ошибку (`&;`), исправлена (коммит b62f35b), владелец её запустить не успел — ребут Pi. NOR = env v3 (crc 18901e20), v4 на p1 карты как `env-new.bin` (crc 25f375ed). Камера сейчас на OpenIPC из RAM (загрузка 14:48), после ребута Pi она не пострадает, но при своём следующем ребуте уйдёт в сток (norboot) — это нормально.
+
+**После ребута Pi (по порядку):**
+1. Владелец: `sudo dtoverlay uart2-pi5` (оверлей не постоянный; UART на pin 29/7/6, `/dev/ttyAMA2`). Проверка: `pinctrl get 4,5` → a2 TXD2/RXD2. GPIO4/5 через pinctrl НЕ трогать.
+2. Владелец через `!` запускает этап записи (команда в `uboot/STOP-env.md`, строка «cd ~/mjsxj05cm-research; pkill -f "^python3 uart/stage.py"; … nor-env-write … & sleep 2; pgrep -a python3; ls -l /proc/…/fd | grep tty»). «Да» уже получено — повторно не спрашивать, только подтвердить, что он помнит.
+3. Я: монитор «ждёт новый stage-лог» с расширенным фильтром (`SF: Detected|Read: OK|Erased|Written|were the same|differ|Fail|Error|==> |ABORT|INIT4_START|SSH_READY_ip`), крон-страховка +30 мин; проверить `pgrep -af "^python3 uart/stage.py"` = nor-env-write и fd на ttyAMA2; затем `python3 uart/camssh.py "reboot -f"` (если камера ещё на OpenIPC; если уже сток — передёрнуть питание попросить владельца).
+4. Гейты: `==> 18901e20` → `Erased: OK` → `Written: OK` → `==> 25f375ed` → `were the same` → `reset` → автобут БЕЗ Enter: `bytes read` → `Starting kernel` → `INIT4_START` → `SSH_READY_ip`. Потом холодный старт (питание), карта вынута → сток, карта назад → OpenIPC. stage.py останавливает владелец.
+5. Откат/обрывы — в STOP-env.md (после erase: `ENV_OLD_CRC=f154670a`; после write: просто питание; env-old.bin на p1).
+
+**Дальше:** отмашка владельцу (HA-поток, Onvifer, Frigate Face Library — подойти к камере), план p4-раздела на карте, записи v4 в STATUS/DECISIONS/FULL-CONTROL-ACCEPTANCE. Идея владельца (15:0x): Мара-агент спрашивает «кто это?» по незнакомцам из Frigate (MQTT `frigate/events` без sub_label → фото → ответ → справочник личностей с алиасами → обучение Frigate по event_id каноническим именем) — план набросан в ответе, кода нет; нужно узнать канал и код Мары.
