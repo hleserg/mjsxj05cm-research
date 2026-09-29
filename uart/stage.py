@@ -93,7 +93,11 @@ SD_ARGS = STAGES["2a-p4"][-2].split(" ", 2)[2]   # bootargs карты — ед�
 # При перехвате Enter'ом автозагрузка обрывается ДО проверки tf_update → карта в приглашении НЕ инициализирована →
 # все репетиции v1/v2 шли от чистой карты и автозагрузку не моделировали. fatload на уже инициализированной карте
 # повторную init не делает (has_init; в логах после rescan третьего mmc_core_init нет) → v3 = только fatload.
-SDBOOT = "mw.l 0x22000000 0 4; fatload mmc 0:1 0x22000000 uImage.ssc325; setenv bootargs ${sdargs}; bootm 0x22000000"
+# 29.09 03:03 (v4): `dcache off` первым. Дизасм (DECISIONS 02:52): сток перед run_command_list(bootcmd) включает MMU+D-кэш
+# (0x23e01038) и выключает после (0x23e010a4); Enter-перехват этот блок пропускает → все репетиции v1..v3 шли с кэшем OFF
+# (13/13 fatload OK), а автозагрузка — с ON (K0: mmc read под кэшем невидим CPU; K1: fatload → мусорная FAT-цепочка).
+# `dcache off` = тот же flush+bic, что делает сам сток после bootcmd; RAM-only, не персистентно.
+SDBOOT = "dcache off; mw.l 0x22000000 0 4; fatload mmc 0:1 0x22000000 uImage.ssc325; setenv bootargs ${sdargs}; bootm 0x22000000"
 NORBOOT = "sf probe 0; sf read 0x22000000 ${sf_kernel_start} ${sf_kernel_size}; setenv bootargs ${norargs}; bootm 0x22000000"
 # Репетиция env в RAM (advisor 21:30): грузим с p1 ТОТ ЖЕ 4K-блок, что пойдёт в NOR (uboot/mkenv.py → env-new.bin на p1),
 # U-Boot сам проверяет CRC (`env import -c`). NOR не трогаем (env import — RAM).
@@ -103,14 +107,17 @@ NORBOOT = "sf probe 0; sf read 0x22000000 ${sf_kernel_start} ${sf_kernel_size}; 
 # mmc_core_init — это и есть проверка v3 (grep по логу после загрузки). Приёмка всё равно = холодный старт после записи.
 # CRC32(4096) блоков env для гейтов: OLD = что сейчас в NOR (v2 записан 00:31 → 2aa0dde8; v1 b8213e13; сток 6c1674b6),
 # NEW = env-new.bin v3 с p1 (uboot/mkenv.py). Обе можно переопределить переменными окружения.
-ENV_OLD_CRC, ENV_NEW_CRC = os.environ.get("ENV_OLD_CRC", "2aa0dde8"), os.environ.get("ENV_NEW_CRC", "18901e20")
+ENV_OLD_CRC, ENV_NEW_CRC = os.environ.get("ENV_OLD_CRC", "18901e20"), os.environ.get("ENV_NEW_CRC", "25f375ed")   # v3 в NOR с 02:31
 STAGES["2a-p4-env"] = [
     ("fatload mmc 0:1 0x22100000 env-new.bin", r"4096 bytes read"),   # init #1 (карта чистая после перехвата)
     ("crc32 0x22100000 0x1000", "==> " + ENV_NEW_CRC),
     "env import -c 0x22100000 0x1000", "printenv bootcmd", "printenv norboot",
-    ("printenv sdboot", r"sdboot=mw\.l 0x22000000"),                 # v3: ни dev 0, ни rescan
+    ("printenv sdboot", r"sdboot=dcache off; mw\.l 0x22000000"),     # v4: dcache off первым, ни dev 0, ни rescan
     "run sdboot",                                                     # fatload без повторной init → bootm
 ]
+# 29.09 03:07 (advisor): репетиция v4 = состояние автозагрузки, т.е. `dcache on` ПЕРЕД `run sdboot` (сам sdboot его гасит).
+# Из приглашения без `dcache on` v4 ничего не доказывает (там кэш и так OFF). Ожидаю `bytes read` → Starting kernel → INIT4.
+STAGES["2a-p4-env4"] = STAGES["2a-p4-env"][:-1] + ["dcache on", "run sdboot"]
 # 29.09 00:40: репетиция v3 БЕЗ файла на p1 (камера на стоке, env-new-v3.bin ещё не залит): сначала fatload несуществующего
 # tf_update.img = ровно то, что делает сток до bootcmd (init #1 + поиск в FAT, «Unable to read file»), затем команды SDBOOT
 # построчно (из той же константы). ${sdargs} берётся из env v2 в NOR. После загрузки: grep mmc_core_init в логе — должен быть ОДИН.
