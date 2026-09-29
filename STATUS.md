@@ -44,6 +44,7 @@
 - **Приёмник на Pi 5:**
   - `/dev/serial0 → ttyAMA10` — это отладочный JST‑разъём Pi, и на нём консоль Pi с getty. Для захвата **не годится**.
   - На GPIO15 (pin 10) функция UART не включена. Нужно `sudo dtoverlay uart0-pi5` (без перезагрузки, пропадёт после неё), после этого появится `/dev/ttyAMA0`. GND — pin 6. **Pin 8 (GPIO14, TX) не подключать.**
+  - **29.09 14:3x: с NVMe‑шапкой pin 10 верхней гребёнки НЕ соединён с GPIO15 (стоит 3.3 В при управлении GPIO15; pin 12 мигает). Переехали на uart2: `sudo dtoverlay uart2-pi5` → `/dev/ttyAMA2`; CAM TX (pad 13) → pin 29 (GPIO5 RXD2), резистор 1 кОм → pin 7 (GPIO4 TXD2) → pad 14, GND → pin 6. stage.py читает `UART_PORT` (по умолчанию `/dev/ttyAMA2`).**
   - USB‑UART к Pi не подключён. `/dev/ttyACM0` — это чужая ESP32 (Espressif USB JTAG), её не трогать.
 
 ## Flash layout — CONFIRMED по boot log (MXP_PARTS ядра)
