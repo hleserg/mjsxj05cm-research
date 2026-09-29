@@ -73,3 +73,10 @@ STATUS.md, FULL-CONTROL-ACCEPTANCE.md.
 5. Откат/обрывы — в STOP-env.md (после erase: `ENV_OLD_CRC=f154670a`; после write: просто питание; env-old.bin на p1).
 
 **Дальше:** отмашка владельцу (HA-поток, Onvifer, Frigate Face Library — подойти к камере), план p4-раздела на карте, записи v4 в STATUS/DECISIONS/FULL-CONTROL-ACCEPTANCE. Идея владельца (15:0x): Мара-агент спрашивает «кто это?» по незнакомцам из Frigate (MQTT `frigate/events` без sub_label → фото → ответ → справочник личностей с алиасами → обучение Frigate по event_id каноническим именем) — план набросан в ответе, кода нет; нужно узнать канал и код Мары.
+
+## 29.09 16:11 — приёмка env v4 (после ребута Pi: шаги выше выполнены, stage.py 10471)
+
+- (1) холодный старт → OpenIPC, SSH 15:59 ✔
+- (2) карта вынута → сток: `Card Detect Fail` → `Wrong Image Format for bootm command` → norboot ✔
+- (3) карта назад → OpenIPC — ждём владельца.
+- После п.3: владелец останавливает stage.py (`! pkill -f "^python3 uart/stage.py"`), обновить STATUS/FULL-CONTROL-ACCEPTANCE, advisor, отмашка HA/Onvifer/Frigate, план p4.
