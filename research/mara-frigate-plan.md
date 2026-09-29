@@ -29,9 +29,12 @@ MQTT для v1 не нужен вовсе → без paho, без пользов
 doctor подключён как клиент `frigate` с 19:36:50). `frigate/events`
 оставить на потом — для «кто-то вошёл» уведомлений.
 
-Проверить на первом файле в train (исходники через explorer не дочитал —
-классификатор лёг): формат имени файла (есть ли event_id / имя / score),
-кладутся ли туда и узнанные (тогда фильтр по имени/порогу), webp или jpg.
+Из исходников 0.18 (`data_processing/real_time/face.py`, explorer 21:2x):
+файл `{event_id}-{timestamp}-{sub_label}-{score}.webp`, туда падают и
+узнанные, и неузнанные — у неузнанных `sub_label = unknown` (score ниже
+`unknown_score` 0.8). Фильтр мостика: `-unknown-` в имени. Старые файлы
+Frigate сам чистит сверх `save_attempts`. Сверить формат на первом реальном
+файле.
 
 ## Обучение: classify попытки, а не заливка кропа человека
 
@@ -40,13 +43,16 @@ doctor подключён как клиент `frigate` с 19:36:50). `frigate/e
 `POST /faces/{name}/register` (загрузка картинки), `POST /faces/{name}/create`,
 `POST /faces/recognize`, `PUT /faces/{old}/rename`,
 `POST /events/{event_id}/sub_label`, `GET /events/{id}/snapshot.jpg?crop=1`.
-«Обучить по event_id» напрямую нет. Путь v1: `classify` попытки — это уже
-вырезанное и проверенное Frigate лицо; `register` кропа person перепрогоняет
-детектор лица и может отбросить. Плюс `POST /events/{id}/sub_label`, чтобы
-событие в UI/HA показало имя (если event_id виден из имени файла).
+`classify` принимает `training_file` ИЛИ `event_id` («a training file or
+event_id must be passed») — то есть «обучить по event_id» есть, и event_id
+виден в имени файла попытки. Путь v1: `classify` с `training_file` (лицо уже
+вырезано и проверено Frigate); `register` кропа person хуже — перепрогоняет
+детектор. Плюс `POST /events/{id}/sub_label`, чтобы событие в UI/HA показало
+имя.
 
-Проверить: нужна ли для classify роль admin (решает, какого пользователя
-заводить).
+Роли (`api/classification.py`, `api/event.py`): classify и recognize — без
+роли; register, create, sub_label — admin. Значит пользователь `mara` —
+admin (или без sub_label — тогда хватит viewer; v1: admin, проще).
 
 ## Где живёт и что нужно от хозяина
 
@@ -64,14 +70,16 @@ Frigate/MQTT в репо и доках.
 
 ## Поток v1
 
-1. Раз в 10 с `GET /api/faces` (логин `POST /api/login`, cookie
-   `frigate_token`; проверить, берёт ли `Authorization: Bearer`).
+1. Раз в 10 с `GET /api/faces` (логин `POST /api/login` `{user,password}`,
+   пароль ≥12 символов; JWT из cookie `frigate_token` можно слать как
+   `Authorization: Bearer`; срок — `JWT_SESSION_LENGTH`, перелогин по 401).
 2. Новый файл в `train`, не узнанный, ещё не спрошенный → скачать в
    `~/mask/strangers/frigate-<id>/01.webp`, написать вопрос в `heard/` тем же
    текстом, что `Guests._ask` (MEDIA:-путь к файлу, «запиши `echo 'имя' >
    …/name`»). Одна попытка = один вопрос; повтор через REASK как у гостей.
 3. `sweep`: появился `name` → это каноническое латинское имя (регэксп
-   `^[a-z0-9_-]+$`, иначе не трогать) → `classify` попытки под ним (+ `create`,
+   `^[a-z0-9_]+$`; дефис Frigate сам меняет на `_`, кириллицу
+   `pathvalidate` пропустит, но имя = папка и sub_label — латиница проще) → `classify` попытки под ним (+ `create`,
    если такого лица нет) → `sub_label` события → маркер `named`. Frigate
    обучен — следующие проходы этого человека узнаёт сам.
 
@@ -99,6 +107,6 @@ Frigate/MQTT в репо и доках.
 ## Дальше по порядку
 
 1. Хозяин: пройти перед камерой (шаг 0), завести пользователя `mara` в Frigate.
-2. Я: по первому файлу в train — формат имени, роль для classify, логин.
+2. Я: по первому файлу в train — сверить формат имени (остальное известно).
 3. Я: `mask/frigate.py` + `docs/people.md` в репо Мары, dry-run с bigpc.
 4. Хозяин: `mask/deployed.sh --положить`, ответить на первый вопрос в Telegram.
