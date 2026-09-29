@@ -35,7 +35,7 @@
 Без `dcache on` репетиция ничего не доказывает (в приглашении кэш и так OFF — так «проходили» v1..v3).
 Отказ = нет `bytes read` (ABORT, остаюсь в U-Boot, `dcache off` через FIFO) → v4 не пишем, дальше дизасм fatload/mmc.
 
-**Итог репетиции: НЕ ВЫПОЛНЕНА (заполнить).**
+**Итог репетиции: ВЫПОЛНЕНА 29.09 14:48, УСПЕХ.** Лог `uart/stage-2a-p4-env4-20260929-144726.log` (UART теперь uart2-pi5 → `/dev/ttyAMA2`, pin 29/7): `4096 bytes read` → `CRC32 … ==> 25f375ed` → `env import` → `printenv sdboot` = `dcache off; mw.l …` → `SigmaStar # dcache on` → `SigmaStar # run sdboot` → `1977576 bytes read in 283 ms` → `Starting kernel` → `INIT4_START` → `SSH_READY_ip` (14:49). Т.е. с включённым D-кэшем (как в автобуте) `sdboot` v4 читает uImage и грузит OpenIPC. Сравнение: v3 в той же ситуации давало сток (три автобута). Единственная непроверенная разница с реальным автобутом — v4 запускался из промпта, а не из bootcmd; bootcmd = `run sdboot; run norboot` уже в NOR (v3) и отрабатывает (доказано тремя падениями в norboot).
 
 ## Что может сломаться и почему не кирпич
 Без изменений против v1..v3 (тот же сектор, те же команды, тот же 4K-путь `sf erase`):
@@ -53,7 +53,7 @@
 `Erased: OK` → `Written: OK` → `Read: OK` → `==> 25f375ed` → `were the same` → `reset` → stage.py пассивен (приёмка автозагрузки).
 Запуск — только владелец, через `!`, после «да»:
 ```
-cd ~/mjsxj05cm-research; for p in $(pgrep -f "stage.py"); do [ "$p" != "$$" ] && kill $p; done; NOR_WRITE=yes ENV_OLD_CRC=18901e20 ENV_NEW_CRC=25f375ed STAGE_WAIT=86400 nohup python3 uart/stage.py nor-env-write > /dev/null 2>&1 &
+cd ~/mjsxj05cm-research; kill $(pgrep -f "python3 uart/stage.py"); sleep 1; NOR_WRITE=yes ENV_OLD_CRC=18901e20 ENV_NEW_CRC=25f375ed STAGE_WAIT=86400 nohup python3 uart/stage.py nor-env-write > /dev/null 2>&1 &
 ```
 затем я: `python3 uart/camssh.py 'reboot -f'` → stage.py ловит U-Boot → этап → `reset` → U-Boot грузит карту сам.
 ```
