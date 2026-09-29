@@ -700,3 +700,6 @@ Flush перед первым DMA безопасен: с момента вклю
 `env-new-v4.bin` через uboot/mkenv.py (SDBOOT в stage.py с префиксом `dcache off; `), на p1 через tools/p1-put.sh (нужен OpenIPC: этап 2a-p4-env3
 или SDBOOT-этап), затем «да» владельца → nor-env-write. K2 можно добрать репетицией `2a-p4-env` с v4-блоком (`env import` + `run sdboot` в RAM) —
 это и есть проверка v4 без записи NOR.
+
+## 29.09 15:52 — env v4 в NOR (`dcache off` в sdboot)
+**Решение:** записать v4 (единственное отличие от v3 — `sdboot=dcache off; mw.l 0x22000000 0 4; fatload …; setenv bootargs ${sdargs}; bootm`). **Почему:** сток U-Boot включает MMU+D-cache перед bootcmd, драйвер sdmmc при кэше ON зациклился в CMD_18 (контроль 02:56); прерывание Enter этот шаг пропускает — поэтому репетиции проходили, а автобуты v1–v3 падали в norboot. Репетиция v4 с `dcache on` 14:48 прошла. **Результат:** запись 15:51 по гейтам (crc до/после, cmp), автобут без Enter 15:52 → OpenIPC. **Откат:** env-old.bin на p1; без карты → сток; default env при битом секторе = приглашение U-Boot, кирпича нет.

@@ -81,3 +81,8 @@ cmp.b 0x22100000 0x22300000 0x1000 # Total of 4096 bytes were the same
 1. После `reset` stage.py пассивен: в логе ожидаю `bytes read in` → `Starting kernel` → `INIT4_START` → `SSH_READY_ip` → `CAM_UP_done`.
 2. Холодный старт: владелец дёргает питание → то же самое. Это и есть приёмка.
 3. Карту вынуть, питание → сток поднимается (`norboot`, засечь время `sf read`), карту вернуть. Владелец останавливает stage.py.
+
+
+## ЗАПИСАНО 29.09 15:51–15:52 (v4 в NOR)
+Владелец: «Да, пиши env v4» (15:0x), запуск `nor-env-write` через `!` 15:51 (PID 10471, `/dev/ttyAMA2`). Лог `uart/stage-nor-env-write-20260929-155119.log`: `sf read`→`==> 18901e20` (v3, как ожидалось) → файл `==> 25f375ed` → `Erased: OK` → `Written: OK` → `sf read`+`crc32` `==> 25f375ed` → `cmp.b` «4096 byte(s) were the same» → `reset`. **Автобут без Enter (stage.py пассивен):** `Unable to read file tf_update.img` (сток проверяет карту) → `1977576 bytes read in 283 ms` → `Starting kernel` → `INIT4_START` → `SSH_READY_ip` 15:52; majestic 636, mma fail 0. NOR: env = v4 (sha256 76f91973…, crc32 25f375ed). Откат по-прежнему: env-old.bin на p1 / карта вынута → сток.
+Приёмка дальше: холодный старт (питание), карта вынута → сток, карта назад → OpenIPC — 15:52, см. STATUS.md.
