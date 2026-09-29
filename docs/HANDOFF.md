@@ -28,14 +28,21 @@
    `NOR_WRITE=yes ENV_OLD_CRC=18901e20 ENV_NEW_CRC=<v4> STAGE_WAIT=86400 nohup python3 uart/stage.py nor-env-write …` → `reboot -f` → приёмка холодным стартом.
    Если K1 тоже проходит — механизм не воспроизведён, v4 не писать; глубже в дизасм (что ещё меняет автозагрузка) или загрузка с помощью Pi.
 
-## Следующая сессия (порядок)
-1. Владелец через `!`: перевзвод `STAGE_WAIT=86400 nohup python3 uart/stage.py 2a-p4-env3` (RAM-загрузка OpenIPC как 00:55) → `reboot` камеры → OpenIPC.
-2. В `uart/stage.py` SDBOOT = `dcache off; mw.l …` (один префикс); `python3 uboot/mkenv.py` → `uboot/env-new-v4.bin` (gitignored) → crc32 → `tools/p1-put.sh uboot/env-new-v4.bin`.
-3. Репетиция v4 в RAM (advisor 03:07): в приглашении кэш и так выкл, поэтому `run sdboot` без подготовки = ещё одна проба A и v4 НЕ проверяет.
-   Нужен этап `2a-p4-env4` = копия `2a-p4-env` с **`dcache on` ПЕРЕД `run sdboot`** (состояние автозагрузки, как K0/K1) — тогда `dcache off` внутри sdboot делает свою работу.
-   `#stage 2a-p4-env4` через FIFO, `reboot -f` → ожидаю bytes read → INIT4. Это и есть настоящий K2; без него STOP v4 не подавать.
-4. STOP v4 в uboot/STOP-env.md (гейты `ENV_OLD_CRC=18901e20`, `ENV_NEW_CRC=<v4>`), AskUserQuestion → «да» → владелец `NOR_WRITE=yes ENV_OLD_CRC=18901e20 ENV_NEW_CRC=<v4> … stage.py nor-env-write`.
-5. Приёмка холодным стартом (ниже).
+## Следующая сессия (порядок) — обновлено 29.09 13:2x
+
+Сделано 13:0x–13:2x: Pi перезагружена, стенд собран, `sudo dtoverlay uart0-pi5` (после каждого ребута Pi!), stage.py `2a-p4-env3` запущен
+(PID 65749, лог `uart/stage-2a-p4-env3-20260929-130838.log`). В `uart/stage.py`: SDBOOT v4 = `dcache off; …`, этап `2a-p4-env4`
+(= 2a-p4-env, но `dcache on` перед `run sdboot`), гейты 18901e20 → 25f375ed; selftest+dry-run ОК (коммит a183988).
+`uboot/env-new-v4.bin` собран (crc32 25f375ed, sha 76f91973…, gitignored). `uboot/STOP-env.md` = черновик STOP v4 (f6d7936).
+
+1. Владелец дёргает питание камеры → stage.py ловит U-Boot → OpenIPC в RAM (INIT4 → SSH → CAM_UP).
+2. Я: `tools/p1-put.sh uboot/env-new-v4.bin` (env-new.bin на p1 = v4; md5 сверить).
+3. **Перевзвод, НЕ `#stage`** (запущенный процесс этапа env4 не знает): владелец через `!`:
+   `cd ~/mjsxj05cm-research; for p in $(pgrep -f "stage.py"); do [ "$p" != "$$" ] && kill $p; done; STAGE_WAIT=86400 nohup python3 uart/stage.py 2a-p4-env4 > /dev/null 2>&1 &`
+   → я: монитор на новый лог, `python3 uart/camssh.py 'reboot -f'` → ожидаю `==> 25f375ed`, `sdboot=dcache off`, `bytes read` → INIT4 → SSH.
+   Нет `bytes read` → ABORT, v4 не годится, не пишем; `dcache off` через FIFO `uart/console.in`.
+4. Репетиция ОК → в STOP-env.md заполнить «Итог репетиции», AskUserQuestion → «да» → владелец запускает `nor-env-write` (команда в STOP-env.md).
+5. Приёмка холодным стартом; без карты → сток (засечь время sf read); карту вернуть; владелец останавливает stage.py.
 
 ## После рабочего env (приёмка)
 Холодный старт → INIT4/SSH/CAM_UP без Pi; карта вынута → сток; карта обратно. stage.py остановить. Потом: отмашка владельцу (HA-поток,
