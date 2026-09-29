@@ -80,3 +80,4 @@ STATUS.md, FULL-CONTROL-ACCEPTANCE.md.
 - (2) карта вынута → сток: `Card Detect Fail` → `Wrong Image Format for bootm command` → norboot ✔
 - (3) карта назад → OpenIPC — ждём владельца.
 - После п.3: владелец останавливает stage.py (`! pkill -f "^python3 uart/stage.py"`), обновить STATUS/FULL-CONTROL-ACCEPTANCE, advisor, отмашка HA/Onvifer/Frigate, план p4.
+- 16:42: (3) карта назад → OpenIPC ✔ (SSH, majestic 637, mma fail 0). Приёмка 3/3. Дальше: владелец останавливает stage.py; отмашка; план p4.
