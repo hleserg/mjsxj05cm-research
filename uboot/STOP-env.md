@@ -35,13 +35,15 @@
 Без `dcache on` репетиция ничего не доказывает (в приглашении кэш и так OFF — так «проходили» v1..v3).
 Отказ = нет `bytes read` (ABORT, остаюсь в U-Boot, `dcache off` через FIFO) → v4 не пишем, дальше дизасм fatload/mmc.
 
-**Итог репетиции: ВЫПОЛНЕНА 29.09 14:48, УСПЕХ.** Лог `uart/stage-2a-p4-env4-20260929-144726.log` (UART теперь uart2-pi5 → `/dev/ttyAMA2`, pin 29/7): `4096 bytes read` → `CRC32 … ==> 25f375ed` → `env import` → `printenv sdboot` = `dcache off; mw.l …` → `SigmaStar # dcache on` → `SigmaStar # run sdboot` → `1977576 bytes read in 283 ms` → `Starting kernel` → `INIT4_START` → `SSH_READY_ip` (14:49). Т.е. с включённым D-кэшем (как в автобуте) `sdboot` v4 читает uImage и грузит OpenIPC. Сравнение: v3 в той же ситуации давало сток (три автобута). Единственная непроверенная разница с реальным автобутом — v4 запускался из промпта, а не из bootcmd; bootcmd = `run sdboot; run norboot` уже в NOR (v3) и отрабатывает (доказано тремя падениями в norboot).
+**Итог репетиции: ВЫПОЛНЕНА 29.09 14:48, УСПЕХ.** Лог `uart/stage-2a-p4-env4-20260929-144726.log` (UART теперь uart2-pi5 → `/dev/ttyAMA2`, pin 29/7): `4096 bytes read` → `CRC32 … ==> 25f375ed` → `env import` → `printenv sdboot` = `dcache off; mw.l …` → `SigmaStar # dcache on` → `SigmaStar # run sdboot` → `1977576 bytes read in 283 ms` → `Starting kernel` → `INIT4_START` → `SSH_READY_ip` (14:49). Т.е. с включённым D-кэшем (как в автобуте) `sdboot` v4 читает uImage и грузит OpenIPC. Сравнение: v3 в той же ситуации давало сток (три автобута). Единственная непроверенная разница с реальным автобутом — v4 запускался из промпта, а не из bootcmd; bootcmd = `run sdboot; run norboot` уже в NOR (v3) и отрабатывает (доказано тремя падениями в norboot). Контрольный опыт с кэшем ON без `dcache off` есть: `uart/stage-2a-p4-sdtest-20260929-025652.log`, строка 11878 после `tr '\r' '\n'`: `dcache on; fatload … uImage.ssc325` → `reading tf_update.img` → бесконечный цикл CMD_18 (14906 чтений, `bytes read` так и не пришло, ABORT). Тот же механизм, что валил автобут v1–v3; v4 его обходит.
 
 ## Что может сломаться и почему не кирпич
 Без изменений против v1..v3 (тот же сектор, те же команды, тот же 4K-путь `sf erase`):
 - Пишется только сектор `0x4F000`; IPL/U-Boot/kernel/rootfs не пишутся ни одной командой этапа.
 - Худшее — битый env → default env (`bootdelay=0`, `baudrate=115200`, без bootcmd) → приглашение U-Boot по UART, лечится `sf write` блока через stage.py.
 - Промежуточный отказ (после `sf erase`, до `sf write`): сектор FF → default env → приглашение; дописываю `sf write` через `uart/console.in`, потом `#passive`, `reset`.
+- Если запись прервалась ПОСЛЕ `sf erase` (обрыв UART/Pi/питания): в NOR сектор 0xFF, crc32 стёртого сектора = **f154670a**; U-Boot грузит default env (bootdelay/baudrate) и даёт приглашение — кирпича нет. Повтор: `sudo dtoverlay uart2-pi5` (если Pi перезагружался), затем тот же запуск с `ENV_OLD_CRC=f154670a` (гейт «до erase» тогда ждёт crc стёртого сектора). Восстановление ≤10 мин.
+- Если прервалось ПОСЛЕ `sf write` до `reset`: env v4 уже в NOR, проверка `sf read`+`crc32` покажет 25f375ed; просто передёрнуть питание камеры — это и есть приёмка автобута.
 - `dcache off` в bootcmd: если бы команда отсутствовала — `Unknown command` → sdboot всё равно идёт дальше (run не прерывается), fatload как в v3 → norboot → сток. Команда есть (список `help`, K0/K1 её выполняли).
 - Программатора нет; этап туда, где он нужен, не пишет. Три идентичных дампа `spi/original-0{1,2,3}.bin` есть.
 - Если v4 тоже не загрузит карту: `norboot` → сток (проверено трижды, теперь с кэшем OFF — медленнее, но тот же путь).
@@ -53,7 +55,7 @@
 `Erased: OK` → `Written: OK` → `Read: OK` → `==> 25f375ed` → `were the same` → `reset` → stage.py пассивен (приёмка автозагрузки).
 Запуск — только владелец, через `!`, после «да»:
 ```
-cd ~/mjsxj05cm-research; pkill -f "^python3 uart/stage.py"; sleep 1; NOR_WRITE=yes ENV_OLD_CRC=18901e20 ENV_NEW_CRC=25f375ed STAGE_WAIT=86400 nohup python3 uart/stage.py nor-env-write > /dev/null 2>&1 &
+cd ~/mjsxj05cm-research; pkill -f "^python3 uart/stage.py"; sleep 1; NOR_WRITE=yes ENV_OLD_CRC=18901e20 ENV_NEW_CRC=25f375ed STAGE_WAIT=86400 nohup python3 uart/stage.py nor-env-write > /dev/null 2>&1 &; sleep 2; pgrep -a python3; ls -l /proc/$(pgrep -f "^python3 uart/stage.py")/fd | grep tty
 ```
 затем я: `python3 uart/camssh.py 'reboot -f'` → stage.py ловит U-Boot → этап → `reset` → U-Boot грузит карту сам.
 ```
