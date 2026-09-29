@@ -212,7 +212,7 @@ def main(stage):
     cmds = [norm(c) for c in STAGES[stage]]
     if not write_allowed(stage, os.environ):
         assert not any(FORBIDDEN.search(c) for c, _ in cmds), "запись в NOR только этапом nor-env-write с NOR_WRITE=yes"
-    port = serial.Serial("/dev/ttyAMA0", 115200, timeout=0.02)
+    port = serial.Serial(os.environ.get("UART_PORT", "/dev/ttyAMA2"), 115200, timeout=0.02)
     out = HERE / time.strftime(f"stage-{stage}-%Y%m%d-%H%M%S.log")
     log, buf = open(out, "wb"), b""
     def say(m):   # 29.09: служебные строки и в stdout, и в лог (владелец запускает с > /dev/null)
