@@ -1,6 +1,6 @@
 # UART: passive physical inspection and boot capture
 
-Status (2026-09-27): фото платы есть, кандидаты пронумерованы 1–18 на [карте](../photos/our-unit/uart-candidates-numbered.jpg), GND отмечен владельцем. TX ещё не найден, boot log нет. Приёмник — GPIO15 Pi 5 после `sudo dtoverlay uart0-pi5` (`/dev/ttyAMA0`), GND — pin 6, pin 8 не подключать. Захват: `./capture.sh` пишет `boot-YYYYMMDD-HHMMSS.log` и строку в `captures.txt`.
+Status (2026-09-27): фото платы есть, кандидаты пронумерованы 1–18 на [карте](../docs/img/board-pads-numbered.jpg), GND отмечен владельцем. TX ещё не найден, boot log нет. Приёмник (актуально с 28.09): `/dev/ttyAMA2` Pi 5 (overlay `uart2-pi5`): площадка 13 (TX камеры) → pin 29 (GPIO5), площадка 14 (RX камеры) ← 1 кОм ← pin 7 (GPIO4), GND — pin 6. Pin 8 не подключать. Захват: `./capture.sh` пишет `boot-YYYYMMDD-HHMMSS.log` и строку в `captures.txt`.
 
 ## Before any connection
 

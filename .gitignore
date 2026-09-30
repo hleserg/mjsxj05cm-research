@@ -42,3 +42,7 @@ __pycache__/
 
 # 28.09: собранные env-блоки U-Boot (MAC внутри)
 uboot/*.bin
+
+# фото платы для README (наклейка с MAC/QR замазана)
+!docs/img/
+!docs/img/*.jpg
