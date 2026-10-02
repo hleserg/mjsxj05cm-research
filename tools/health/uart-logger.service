@@ -1,0 +1,12 @@
+[Unit]
+Description=UART-консоль камеры MJSXJ05CM: /dev/ttyAMA2 -> uart/boot-console.log
+StartLimitIntervalSec=0
+
+[Service]
+ExecStartPre=/bin/stty -F /dev/ttyAMA2 115200 raw -echo clocal
+ExecStart=/bin/sh -c 'exec cat /dev/ttyAMA2 >> /home/hleserg/mjsxj05cm-research/uart/boot-console.log'
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=default.target
