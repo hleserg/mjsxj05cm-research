@@ -92,6 +92,7 @@ JEDEC `1C 70 18` (EN25QH128A), 16 MiB, erase `0x10000`.
 - Разрезан по MTD: `firmware/own-4.3.9_0445/mtd-*.bin` (+ SHA256SUMS). В dump и `mtd-data/config/factory` — пароль Wi‑Fi, ключи и MAC устройства: наружу не выкладывать.
 - **Копия вне Pi (27.09 21:26):** `doctor:/mnt/backup/mjsxj05cm-flash-20260927/` — три dump + SHA256SUMS, `sha256sum -c` там OK, папка 700, файлы 600. `backup-pull.sh` на докторе чистит только `world-*.tar.gz`, эту папку не трогает.
 - Чужой полный SPI image (khmyznikov) не записывать: в нём чужие config/factory/MAC/calibration.
+- **С 09.10 в NOR OpenIPC** (kernel 0x50000, rootfs 0x250000, env 0x4F000): «вынуть карту → сток» больше не работает. Возврат стока = запись тех же трёх областей из `firmware/own-4.3.9_0445/mtd-kernel.bin`/`mtd-rootfs.bin` (crc a5447ccc/c41c56d0) и env v4 — только через новый STOP и «да».
 
 ## Risks
 
