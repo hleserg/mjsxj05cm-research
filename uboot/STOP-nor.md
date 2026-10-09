@@ -94,4 +94,14 @@ tail -f uart/stage-nor-openipc-write-*.log       # ждём 3× "were the same" 
 4. `tools/boot-mode.sh sd` → перезагрузка → снова `mjsxj05cm-sd`. Оба режима задокументированы в README («Два режима»).
 
 ## ЗАПИСАНО
-(заполняется после записи: время, лог, crc из readback)
+**09.10 ≈20:30–20:34 (MSK), лог `uart/stage-nor-openipc-write-20261009-165513.log`** (взведён 16:55, камеру перезагрузил владелец).
+Гейты до стирания: rootfs `c41c56d0`, kernel `a5447ccc`, env `25f375ed` (сток/v4), RAM-образы `1b23dd8c`/`6b5590f4`/`818e914a` — всё как в CRC.txt.
+Записано и прочитано назад (U-Boot `sf read` + `crc32` + cmp.b):
+
+| область | смещение | размер | Erased/Written | crc readback | «were the same» |
+|---|---|---|---|---|---|
+| rootfs | 0x250000 | 7733248 | OK/OK | 1b23dd8c | 7733248 |
+| kernel | 0x50000 | 2097152 | OK/OK | 6b5590f4 | 2097152 |
+| env v5 | 0x4F000 | 4096 | OK/OK | 818e914a | 4096 |
+
+После `reset` загрузчик по env v5 выбрал `sdboot` (uImage на p1): камера поднялась с карты p3 (`mjsxj05cm-sd`), ssh, majestic, dropbear, RTSP/ONVIF 401 (= auth), postboot ок 20:34. Откат через карту работает. Приёмка режима NOR — следующий шаг (`tools/boot-mode.sh nor` + reboot).
