@@ -174,3 +174,7 @@ STATUS.md, FULL-CONTROL-ACCEPTANCE.md.
 ### 10.10 01:09 — тест sd-режима с p3 v2 ПРОЙДЕН
 
 Владелец 01:08: `tools/boot-mode.sh sd` + reboot. Через ~60 с: hostname `mjsxj05cm-sd`, `root=/dev/mmcblk0p3`, `init=/init4.sh` (md5 4fc97a6f = репо), majestic/dropbear живы, wpa_state COMPLETED на beta-cam (freq 2442), ssh/RTSP 554/HTTP 80 на 192.168.30.53. Оба режима (NOR и карта) теперь на новом Wi-Fi. Дальше: владелец возвращает NOR (`boot-mode.sh nor` + reboot), затем закрытие задачи.
+
+### 10.10 01:32 — камера возвращена в NOR, задача Wi-Fi закрыта полностью
+
+Владелец 01:31: `boot-mode.sh nor` + reboot → `mjsxj05cm-nor`, root=/dev/mtdblock2, majestic/dropbear, beta-cam, RTSP ок. Итог: NOR = rootfs v2, карта p3 = v2, Frigate на .30.53, cam-health на .30.53, uart-logger активен. p2 карты — v1 (старый Wi-Fi), не в пути загрузки, оставлен. Владельцу (его сторона): ONVIF-интеграция в HA, если есть, → host 192.168.30.53.
