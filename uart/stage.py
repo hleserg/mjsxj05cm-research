@@ -195,9 +195,12 @@ FORBIDDEN = re.compile(r"\b(saveenv|sf\s+(erase|write|update)|erase|update|upgra
 # шаге камера по-прежнему грузит карту (sdboot), а nor-stock-restore тем же билдером возвращает сток из mtd-*.bin на p1.
 # Гейты «старого» состояния принимают сток | стёрто (0xFF) | уже новое — чтобы повторный запуск после ABORT не упёрся в гейт.
 # RAM: файл rootfs 0x22000000..0x22760000, его readback 0x22800000; kernel 0x23000000 / 0x23200000; env 0x23400000 / 0x23500000;
-# всё ниже U-Boot (0x23E00000). Таймауты 600 с: fatload/sf write 7 МиБ по SPI идут минутами. Никогда: 0x0 (U-Boot), 0x9B0000 (DATA),
+# всё ниже U-Boot (0x23E00000). Таймауты 1800 с: sf erase 0x760000 = 1888 секторов по 4К (U-Boot стирал 0x1000 → 4К-режим), по даташиту
+# EN25QH128A до 300 мс/сектор = до 566 с; fatload/sf write 7 МиБ — минуты. По таймауту → ABORT без следующей команды (U-Boot доделает своё).
+# EXTRA_OLD_CRC=aaaaaaaa,bbbbbbbb — добавить гейту «до записи» фактический crc области (полузаписанная после обрыва питания). Никогда: 0x0 (U-Boot), 0x9B0000 (DATA),
 # 0xFE0000 (config), 0xFF0000 (factory).
-BIG = 600
+BIG = 1800
+EXTRA_OLD = tuple(x for x in os.environ.get("EXTRA_OLD_CRC", "").split(",") if x)
 ERASED = {0x1000: "f154670a", 0x200000: "9a4109e5", 0x760000: "024d6fec"}   # crc32 области из 0xFF (посчитано 09.10)
 ROOTFS_NOR_CRC = os.environ.get("ROOTFS_NOR_CRC", crc_txt("rootfs-nor.pad.bin"))
 KERNEL_PAD_CRC = crc_txt("kernel.pad.bin")          # 6b5590f4 = uImage.ssc325 + 0xFF до 0x200000
@@ -218,14 +221,14 @@ STOCK_REGIONS = [
 def nor_write(regions, write=True):
     cmds = [("sf probe 0", r"SF: Detected")]
     for f, crc, off, size, la, rb, old in regions:                     # гейт 1: NOR в ожидаемом состоянии
-        cmds += [(f"sf read 0x{rb:X} 0x{off:X} 0x{size:X}", r"Read: OK", BIG), (f"crc32 0x{rb:X} 0x{size:X}", "==> (" + "|".join(old) + ")")]
+        cmds += [(f"sf read 0x{rb:X} 0x{off:X} 0x{size:X}", r"Read: OK", BIG), (f"crc32 0x{rb:X} 0x{size:X}", "==> (" + "|".join(old + EXTRA_OLD) + ")")]
     cmds += [("mmc dev 0", None), ("mmc rescan", None)]
     for f, crc, off, size, la, rb, old in regions:                     # гейт 2: файлы с p1 = те, что в STOP (CRC.txt)
         cmds += [(f"fatload mmc 0:1 0x{la:X} {f}", f"{size} bytes read", BIG), (f"crc32 0x{la:X} 0x{size:X}", "==> " + crc)]
     for f, crc, off, size, la, rb, old in (regions if write else []):
         cmds += [(f"sf erase 0x{off:X} 0x{size:X}", r"Erased: OK", BIG), (f"sf write 0x{la:X} 0x{off:X} 0x{size:X}", r"Written: OK", BIG),
                  (f"sf read 0x{rb:X} 0x{off:X} 0x{size:X}", r"Read: OK", BIG), (f"crc32 0x{rb:X} 0x{size:X}", "==> " + crc),
-                 (f"cmp.b 0x{la:X} 0x{rb:X} 0x{size:X}", r"were the same", BIG)]
+                 (f"cmp.b 0x{la:X} 0x{rb:X} 0x{size:X}", rf"Total of {size} byte\(s\) were the same", BIG)]   # как в логе 29.09
     return cmds + ([("reset", None)] if write else [])
 
 
@@ -267,7 +270,9 @@ def selftest():
         assert offs == ["0x250000", "0x50000", "0x4F000"], (w, offs)
         assert not any(c.startswith("sf erase 0x0 ") or "0xFE0000" in c or "0xFF0000" in c or "0x9B0000" in c for c, _, _ in map(norm, STAGES[w]))
     assert [c for c, _, _ in map(norm, STAGES["nor-openipc-check"]) if c.startswith("sf ")] == ["sf probe 0"] + [c for c, _, _ in map(norm, STAGES["nor-openipc-check"]) if c.startswith("sf read")]
-    assert "root=/dev/mtdblock2" in NOR_ARGS and "init=/init4.sh" in NOR_ARGS
+    assert "root=/dev/mtdblock2" in NOR_ARGS and "init=/init4.sh" in NOR_ARGS   # mtd2 = rootfs 0x250000 под ядром OpenIPC, /proc/mtd 09.10
+    assert all(t >= 1800 for c, _, t in map(norm, STAGES["nor-openipc-write"]) if c.startswith(("sf erase", "sf write")))
+    assert any(re.search(r"Total of 7733248 byte", e or "") for _, e, _ in map(norm, STAGES["nor-openipc-write"]))
     assert FORBIDDEN.search("sf update 0x22000000 0x50000 0x200000")
     assert FORBIDDEN.search("saveenv")
     assert not FORBIDDEN.search("sf read 0x22000000 0x50000 0x200000")

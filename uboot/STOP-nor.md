@@ -26,6 +26,8 @@
   стоковые переменные — байт в байт как в v4 (mkenv.py без `--nor` по-прежнему выдаёт v4, crc `25f375ed`, проверено 09.10).
 - init4.sh v8 сам понимает, откуда загружен (`root=` в /proc/cmdline): hostname `mjsxj05cm-nor` / `mjsxj05cm-sd`, autorun с `/tmp/p1` если карта
   есть, иначе из `/opt/p1`. Одно и то же ядро и один init для обоих режимов.
+- `root=/dev/mtdblock2` проверен на живой камере 09.10 под ядром OpenIPC (`/proc/mtd`: mtd0 boot 320k, mtd1 kernel 2048k, mtd2 rootfs 7552k,
+  mtd3 rootfs_data) — разметка зашита в ядро (mtdparts в /proc/cmdline), от env не зависит.
 - **DATA (mtd3, `0x9B0000`, стоковый jffs2) не трогаем**: OpenIPC из NOR работает RAM-only, как и с карты (записи — только на p4 карты).
 
 ## Навсегда запрещено (ни одной командой этапов)
@@ -48,12 +50,17 @@
 я: `timeout 12 python3 uart/camssh.py "sync; reboot -f"` (с согласия) → лог `uart/stage-<этап>-*.log` → после: `systemctl --user start uart-logger`.
 
 ## Что может сломаться и почему не кирпич
+**Карта остаётся вставленной всю запись и после неё.** Env v4 в NOR до самого последнего `sf write` (4 КиБ, доли секунды), поэтому любое
+промежуточное состояние kernel/rootfs грузится с карты как сейчас — настоящий откат «на полпути» это `sdboot`, а не `nor-stock-restore`.
+Таймауты erase/write 1800 с (стирание 0x760000 по 4К-секторам — до ~10 мин по даташиту); по таймауту stage.py шлёт ABORT и больше ничего,
+U-Boot свою команду доделывает.
 - Любой ABORT до последнего `sf write` env: в NOR env v4, `bootcmd=run sdboot; run norboot` → карта грузится как сейчас. Стёртые/битые
   kernel/rootfs в NOR не мешают: sdboot не читает NOR. Повтор этапа после ABORT проходит гейты (принимают сток | 0xFF | новое).
 - ABORT после `sf erase 0x4F000` до `sf write`: default env, приглашение U-Boot по UART (bootdelay) — дописать `sf write` через
   `uart/console.in`, как в STOP-env.md; crc стёртого сектора `f154670a`.
-- Обрыв питания/UART посреди `sf write` rootfs (минуты): область частично записана, crc ≠ любому гейту → повтор с `ROOTFS_NOR_CRC`
-  не поможет — тогда владельцу: прочитать область (`sf read` + crc32 через FIFO) и запустить с гейтом под фактический crc. Карта грузится.
+- Обрыв питания/UART посреди `sf write` rootfs (минуты): область частично записана, crc ≠ любому гейту, повтор упрётся в гейт 1. Порядок:
+  камера грузится с карты (env v4 цел) → я читаю фактический crc из лога ABORT (строка `crc32 ... ==> xxxxxxxx`) → владелец перезапускает
+  тот же этап с `EXTRA_OLD_CRC=xxxxxxxx` (через запятую, если областей несколько) — гейт примет его, erase/write пройдут заново целиком.
 - Новый rootfs в NOR не поднимается без карты (Wi-Fi, модуль, pid): карта с uImage → режим SD, чиним, пересобираем, пишем rootfs заново.
 - Пока идёт запись (≈10–15 мин с fatload 7 МиБ и cmp.b), cam-health пришлёт «НЕ ОТВЕЧАЕТ» — это ожидаемо.
 - U-Boot (0x0–0x4F000) не пишется ни одной командой → приглашение по UART остаётся всегда; программатор не нужен.
@@ -65,7 +72,8 @@ NOR_WRITE=yes STAGE_WAIT=86400 nohup python3 uart/stage.py nor-openipc-write > /
 # я, с согласия: timeout 12 python3 uart/camssh.py "sync; reboot -f"
 tail -f uart/stage-nor-openipc-write-*.log       # ждём 3× "were the same" → reset → автозагрузка с карты (uImage на p1 есть)
 ```
-Переменные-гейты по умолчанию берутся из `CRC.txt` (`ENV_OLD_CRC=25f375ed`, `ENV_NEW_CRC=818e914a`, `ROOTFS_NOR_CRC=1b23dd8c`).
+Переменные-гейты по умолчанию берутся из `CRC.txt` (`ENV_OLD_CRC=25f375ed`, `ENV_NEW_CRC=818e914a`, `ROOTFS_NOR_CRC=1b23dd8c`);
+`EXTRA_OLD_CRC=…` — только для повтора после обрыва (см. выше).
 
 ## Откат
 `NOR_WRITE=yes STAGE_WAIT=86400 nohup python3 uart/stage.py nor-stock-restore > /dev/null 2>&1 &` — rootfs → kernel → env стоковые из p1.

@@ -113,3 +113,10 @@ STATUS.md, FULL-CONTROL-ACCEPTANCE.md.
 ### 15:43 — всё подготовлено, файлы на карте, сессия перезапускается (владелец обновляет Claude)
 Сделано и закоммичено: env v5 (`uboot/mkenv.py --nor=openipc`, crc 818e914a), stage.py (таймаут на команду, WRITE_STAGES, билдер `nor_write`, этапы `nor-openipc-check` / `nor-openipc-write` / `nor-stock-restore` / `2a-p2`, selftest ok), `tools/boot-mode.sh`, `tools/p1-put.sh` (http+wget), `uboot/STOP-nor.md`, README «Два режима» + шаг 6, DECISIONS 09.10. На p1 карты лежат (md5 сошлись): rootfs-nor.pad.bin, env-new.bin (= v5), env-new-v4.bin, cam-up.sh v8. **NOR не писался.**
 Дальше (новая сессия, `resume bet-6ac8dbbb-cbe7`): 1) советник — ревью STOP-nor.md и stage.py; 2) репетиции `nor-openipc-check` и `2a-p2` (dd rootfs-nor.squashfs на p2 — сказать владельцу; stage.py запускает владелец через `!`); 3) STOP владельцу → «да» → запись; 4) приёмка по STOP, `task-budget end`.
+
+### 09.10 16:25 — ревью советника перед STOP: 4 пункта закрыты
+1. `root=/dev/mtdblock2` подтверждён на живой камере под ядром OpenIPC (/proc/mtd: mtd2 rootfs 7552k @0x250000, разметка зашита в ядро).
+2. Строки U-Boot `Erased: OK` / `Written: OK` / `Total of N byte(s) were the same` сверены с логом записи env 29.09; cmp.b теперь ждёт точный N.
+3. BIG 600 → 1800 с (erase 0x760000 по 4К-секторам до ~566 с по даташиту); по таймауту ABORT, U-Boot доделывает сам.
+4. `EXTRA_OLD_CRC=…` в stage.py — гейт под фактический crc полузаписанной области; в STOP-nor.md: карта остаётся вставленной, sdboot = откат на полпути.
+Дальше: показать владельцу план репетиций (nor-openipc-check → 2a-p2 с dd на p2 с его OK) → STOP → «да». NOR не писался.
