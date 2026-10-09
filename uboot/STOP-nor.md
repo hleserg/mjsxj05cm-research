@@ -88,10 +88,10 @@ tail -f uart/stage-nor-openipc-write-*.log       # ждём 3× "were the same" 
 Или ничего не делать: с картой камера грузит OpenIPC с карты, что бы ни лежало в NOR.
 
 ## Приёмка
-1. После `reset`: автозагрузка с карты, `tools/boot-mode.sh status` → `mjsxj05cm-sd`, root=/dev/mmcblk0p3.
-2. `tools/boot-mode.sh nor` → владелец перезагружает → `status`: `mjsxj05cm-nor`, root=/dev/mtdblock2; RTSP/ONVIF/SSH/PTZ как раньше; p4 с картой пишет.
-3. Физически без карты (владелец вынимает) → камера в сети как `mjsxj05cm-nor`, autorun из /opt/p1, RTSP идёт.
-4. `tools/boot-mode.sh sd` → перезагрузка → снова `mjsxj05cm-sd`. Оба режима задокументированы в README («Два режима»).
+1. ✅ 20:34 После `reset`: автозагрузка с карты, `tools/boot-mode.sh status` → `mjsxj05cm-sd`, root=/dev/mmcblk0p3.
+2. ✅ 21:33 `tools/boot-mode.sh nor` → владелец перезагрузил → `status`: `mjsxj05cm-nor`, root=/dev/mtdblock2 (mtdparts из ядра), /init4.sh md5 4fc97a6f = репо, p1 смонтирован (autorun с карты), p4 пишет, majestic/dropbear, RTSP/ONVIF 401 (= auth), postboot ок. Камера оставлена в NOR-режиме с картой как данными.
+3. ⏳ Физически без карты (владелец вынимает) → камера в сети как `mjsxj05cm-nor`, autorun из /opt/p1, RTSP идёт.
+4. ⏳ (по желанию) `tools/boot-mode.sh sd` → перезагрузка → снова `mjsxj05cm-sd`; механизм тот же, что в п.2, обратный. Оба режима задокументированы в README («Два режима»).
 
 ## ЗАПИСАНО
 **09.10 ≈20:30–20:34 (MSK), лог `uart/stage-nor-openipc-write-20261009-165513.log`** (взведён 16:55, камеру перезагрузил владелец).

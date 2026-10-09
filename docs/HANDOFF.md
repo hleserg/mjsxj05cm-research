@@ -133,3 +133,10 @@ STATUS.md, FULL-CONTROL-ACCEPTANCE.md.
 1. **Запись 20:30–20:34:** владелец перезагрузил камеру, взведённый `nor-openipc-write` (PID 1862492) прошёл все гейты (старые crc c41c56d0/a5447ccc/25f375ed), записал rootfs 0x250000 (7733248), kernel 0x50000 (2097152), env v5 0x4F000 (4096); readback crc 1b23dd8c/6b5590f4/818e914a, три «were the same». Лог `uart/stage-nor-openipc-write-20261009-165513.log`. Подробно: `uboot/STOP-nor.md` → «ЗАПИСАНО».
 2. **После reset:** env v5 → sdboot → карта p3, `mjsxj05cm-sd`, ssh/majestic/dropbear/RTSP/ONVIF ок, postboot ок 20:34. stage.py в пассивном режиме (только лог), uart-logger стоп, cam-health на паузе.
 3. **Дальше:** приёмка NOR-режима: `tools/boot-mode.sh nor` → reboot (владелец) → ждём `root=/dev/mtdblock2`, hostname `mjsxj05cm-nor`, majestic/RTSP/ONVIF → обратно `boot-mode.sh sd` → физический тест без карты (владелец) → вернуть надзор (pkill stage.py, uart-logger start, снять паузу) → STATUS/DECISIONS/README → советник → budget end.
+
+### 09.10 21:34 — ПРИЁМКА NOR-РЕЖИМА ПРОЙДЕНА
+
+1. 21:33 владелец перезагрузил (uImage.ssc325 → .off на p1): U-Boot sdboot → «Wrong Image Format» → norboot → `root=/dev/mtdblock2`, `mjsxj05cm-nor`, /init4.sh md5 4fc97a6f = репо, p1/p4 смонтированы, majestic, dropbear, RTSP/ONVIF 401, postboot ок. Load average ~9 в sd-режиме (IspDriverThread 35 %, majestic 28 %) — так же было и до записи, не признак беды.
+2. Камера оставлена в NOR-режиме (образ новее p3: init4 v8), карта как данные. Обратно: `tools/boot-mode.sh sd` + reboot. Физический тест без карты — за владельцем, когда удобно.
+3. Осталось владельцу: вернуть надзор — `pkill -f "^python3 uart/stage.py"; systemctl --user start uart-logger; rm ~/.local/state/cam-health/pause`.
+4. Новая просьба владельца 21:3x: «перевести камеру на другой wifi». Факт: SSID/PSK зашиты в `/wpa.conf` внутри squashfs (и p3, и NOR) — смена через пересборку rootfs = ещё одна запись NOR (STOP). Без флеша: autorun.sh/файл на карте → `wpa_cli add_network/set_network/enable_network` при старте. Решение за владельцем (какая сеть, PSK на карте ок?).

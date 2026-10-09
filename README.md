@@ -89,8 +89,8 @@ Linux с `sfdisk`, `mkfs.vfat`, `mksquashfs`, `python3`.
 ## Два режима: карта и NOR
 
 После шага 5 загрузчик делает `run sdboot; run norboot`: есть `uImage.ssc325` на первом разделе карты — грузится
-карта, нет — грузится то, что лежит в NOR. Пока там сток Xiaomi; шаг 6 кладёт туда OpenIPC, и тогда камера
-работает **и без карты** (записи при этом некуда — только с картой на p4). Выбор режима — без записи во флеш,
+карта, нет — грузится то, что лежит в NOR. С 09.10 там OpenIPC (шаг 6), и камера
+работает **и без карты** (записи при этом некуда — только с картой на p4); с картой в NOR-режиме карта — только данные (p1 autorun, p4 записи). Выбор режима — без записи во флеш,
 переименованием файла на карте:
 
 ```bash
@@ -107,7 +107,7 @@ python3 uart/camssh.py "sync; reboot -f"
    python3 uboot/mkenv.py uboot/env-new-v5.bin --nor=openipc                  # env v5: norargs → root=/dev/mtdblock2, init=/init4.sh
    tools/p1-put.sh firmware/openipc-ipc017-20260926/{rootfs-nor.pad.bin,kernel.pad.bin} uboot/env-new-v5.bin   # на карту (http+wget)
    python3 uart/stage.py --dry-run nor-openipc-check                           # репетиция: гейты и файлы, без записи
-   NOR_WRITE=yes STAGE_WAIT=86400 nohup python3 uart/stage.py nor-openipc-write > /dev/null 2>&1 &   # сама запись, ~15 мин
+   NOR_WRITE=yes STAGE_WAIT=86400 nohup python3 uart/stage.py nor-openipc-write > /dev/null 2>&1 &   # сама запись, ~5 мин после reboot камеры
    ```
    Порядок записи rootfs → ядро → env: при обрыве на любом шаге env ещё старый, и камера как прежде грузит карту.
    Сначала прочитайте [uboot/STOP-nor.md](uboot/STOP-nor.md) целиком — там таблица CRC, репетиции и что делать при отказе.
