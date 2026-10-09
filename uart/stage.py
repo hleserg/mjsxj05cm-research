@@ -99,6 +99,19 @@ SD_ARGS = STAGES["2a-p4"][-2].split(" ", 2)[2]   # bootargs карты — ед�
 # `dcache off` = тот же flush+bic, что делает сам сток после bootcmd; RAM-only, не персистентно.
 SDBOOT = "dcache off; mw.l 0x22000000 0 4; fatload mmc 0:1 0x22000000 uImage.ssc325; setenv bootargs ${sdargs}; bootm 0x22000000"
 NORBOOT = "sf probe 0; sf read 0x22000000 ${sf_kernel_start} ${sf_kernel_size}; setenv bootargs ${norargs}; bootm 0x22000000"
+# 09.10: bootargs для OpenIPC из NOR (env v5, uboot/mkenv.py --nor=openipc): те же, что у карты, только корень = mtd2 (rootfs @0x250000).
+# init=/init4.sh тот же файл (v8 сам понимает, карта он или NOR, по root= в /proc/cmdline). DATA (mtd3) не трогаем.
+NOR_ARGS = SD_ARGS.replace("root=/dev/mmcblk0p3", "root=/dev/mtdblock2")
+assert NOR_ARGS != SD_ARGS
+CRC_TXT = HERE.parent / "firmware/openipc-ipc017-20260926/CRC.txt"   # file | bytes | crc32 | sha256 — единый источник гейтов
+
+
+def crc_txt(name, default="????????"):
+    for l in CRC_TXT.read_text().splitlines() if CRC_TXT.exists() else []:
+        f = [x.strip() for x in l.split("|")]
+        if len(f) >= 3 and f[0].split(" ")[0] == name:
+            return f[2]
+    return default
 # Репетиция env в RAM (advisor 21:30): грузим с p1 ТОТ ЖЕ 4K-блок, что пойдёт в NOR (uboot/mkenv.py → env-new.bin на p1),
 # U-Boot сам проверяет CRC (`env import -c`). NOR не трогаем (env import — RAM).
 # MAXARGS стокового U-Boot = 32 (cli_simple_parse_line @0x23e09438) — без запаса для setenv длинных строк не обойтись, поэтому файл.
@@ -107,7 +120,7 @@ NORBOOT = "sf probe 0; sf read 0x22000000 ${sf_kernel_start} ${sf_kernel_size}; 
 # mmc_core_init — это и есть проверка v3 (grep по логу после загрузки). Приёмка всё равно = холодный старт после записи.
 # CRC32(4096) блоков env для гейтов: OLD = что сейчас в NOR (v2 записан 00:31 → 2aa0dde8; v1 b8213e13; сток 6c1674b6),
 # NEW = env-new.bin v3 с p1 (uboot/mkenv.py). Обе можно переопределить переменными окружения.
-ENV_OLD_CRC, ENV_NEW_CRC = os.environ.get("ENV_OLD_CRC", "18901e20"), os.environ.get("ENV_NEW_CRC", "25f375ed")   # v3 в NOR с 02:31
+ENV_OLD_CRC, ENV_NEW_CRC = os.environ.get("ENV_OLD_CRC", "25f375ed"), os.environ.get("ENV_NEW_CRC", crc_txt("env-v5.bin"))   # 09.10: v4 в NOR с 29.09 15:51; NEW = v5
 STAGES["2a-p4-env"] = [
     ("fatload mmc 0:1 0x22100000 env-new.bin", r"4096 bytes read"),   # init #1 (карта чистая после перехвата)
     ("crc32 0x22100000 0x1000", "==> " + ENV_NEW_CRC),
@@ -118,6 +131,9 @@ STAGES["2a-p4-env"] = [
 # 29.09 03:07 (advisor): репетиция v4 = состояние автозагрузки, т.е. `dcache on` ПЕРЕД `run sdboot` (сам sdboot его гасит).
 # Из приглашения без `dcache on` v4 ничего не доказывает (там кэш и так OFF). Ожидаю `bytes read` → Starting kernel → INIT4.
 STAGES["2a-p4-env4"] = STAGES["2a-p4-env"][:-1] + ["dcache on", "run sdboot"]
+# 09.10: репетиция содержимого NOR-корня без записи NOR: rootfs-nor.squashfs положен dd на p2 карты (8 МиБ, старый stage-2),
+# грузим ядро с p1 и корень с p2 — тот же init4.sh v8, /opt/p1 и т.д. Hostname будет mjsxj05cm-sd (root= не mtdblock) — это ожидаемо.
+STAGES["2a-p2"] = SD_PRE + ["setenv bootargs " + SD_ARGS.replace("root=/dev/mmcblk0p3", "root=/dev/mmcblk0p2"), "bootm 0x22000000"]
 # 29.09 00:40: репетиция v3 БЕЗ файла на p1 (камера на стоке, env-new-v3.bin ещё не залит): сначала fatload несуществующего
 # tf_update.img = ровно то, что делает сток до bootcmd (init #1 + поиск в FAT, «Unable to read file»), затем команды SDBOOT
 # построчно (из той же константы). ${sdargs} берётся из env v2 в NOR. После загрузки: grep mmc_core_init в логе — должен быть ОДИН.
@@ -173,6 +189,50 @@ STAGES[WRITE_STAGE] = [
 ]
 RESET = re.compile(rb"(^|\n)IPL[ _]")   # баннер IPL в начале строки = камера сбросилась (после загрузки ядра)
 FORBIDDEN = re.compile(r"\b(saveenv|sf\s+(erase|write|update)|erase|update|upgrade|flashcp|nand)\b")
+
+# 09.10: OpenIPC в NOR (uboot/STOP-nor.md). Три области, каждая: файл на p1 → RAM → гейты → erase → write → read → crc32 → cmp.b.
+# Порядок rootfs → kernel → env: env (bootcmd=run sdboot; run norboot) переписывается ПОСЛЕДНИМ, так что при ABORT на любом
+# шаге камера по-прежнему грузит карту (sdboot), а nor-stock-restore тем же билдером возвращает сток из mtd-*.bin на p1.
+# Гейты «старого» состояния принимают сток | стёрто (0xFF) | уже новое — чтобы повторный запуск после ABORT не упёрся в гейт.
+# RAM: файл rootfs 0x22000000..0x22760000, его readback 0x22800000; kernel 0x23000000 / 0x23200000; env 0x23400000 / 0x23500000;
+# всё ниже U-Boot (0x23E00000). Таймауты 600 с: fatload/sf write 7 МиБ по SPI идут минутами. Никогда: 0x0 (U-Boot), 0x9B0000 (DATA),
+# 0xFE0000 (config), 0xFF0000 (factory).
+BIG = 600
+ERASED = {0x1000: "f154670a", 0x200000: "9a4109e5", 0x760000: "024d6fec"}   # crc32 области из 0xFF (посчитано 09.10)
+ROOTFS_NOR_CRC = os.environ.get("ROOTFS_NOR_CRC", crc_txt("rootfs-nor.pad.bin"))
+KERNEL_PAD_CRC = crc_txt("kernel.pad.bin")          # 6b5590f4 = uImage.ssc325 + 0xFF до 0x200000
+STOCK_ROOTFS_CRC, STOCK_KERNEL_CRC, STOCK_ENV_CRC = crc_txt("mtd-rootfs.bin"), crc_txt("mtd-kernel.bin"), "6c1674b6"
+# (имя файла на p1, crc32 файла, смещение NOR, размер, адрес файла в RAM, адрес readback, допустимые crc области до записи)
+OPENIPC_REGIONS = [
+    ("rootfs-nor.pad.bin", ROOTFS_NOR_CRC, 0x250000, 0x760000, 0x22000000, 0x22800000, (STOCK_ROOTFS_CRC, ERASED[0x760000], ROOTFS_NOR_CRC)),
+    ("kernel.pad.bin",     KERNEL_PAD_CRC, 0x50000,  0x200000, 0x23000000, 0x23200000, (STOCK_KERNEL_CRC, ERASED[0x200000], KERNEL_PAD_CRC)),
+    ("env-new.bin",        ENV_NEW_CRC,    0x4F000,  0x1000,   0x23400000, 0x23500000, (ENV_OLD_CRC, ERASED[0x1000], ENV_NEW_CRC)),
+]
+STOCK_REGIONS = [
+    ("mtd-rootfs.bin", STOCK_ROOTFS_CRC, 0x250000, 0x760000, 0x22000000, 0x22800000, (ROOTFS_NOR_CRC, ERASED[0x760000], STOCK_ROOTFS_CRC)),
+    ("mtd-kernel.bin", STOCK_KERNEL_CRC, 0x50000,  0x200000, 0x23000000, 0x23200000, (KERNEL_PAD_CRC, ERASED[0x200000], STOCK_KERNEL_CRC)),
+    ("env-old.bin",    STOCK_ENV_CRC,    0x4F000,  0x1000,   0x23400000, 0x23500000, (ENV_NEW_CRC, ENV_OLD_CRC, ERASED[0x1000], STOCK_ENV_CRC)),
+]
+
+
+def nor_write(regions, write=True):
+    cmds = [("sf probe 0", r"SF: Detected")]
+    for f, crc, off, size, la, rb, old in regions:                     # гейт 1: NOR в ожидаемом состоянии
+        cmds += [(f"sf read 0x{rb:X} 0x{off:X} 0x{size:X}", r"Read: OK", BIG), (f"crc32 0x{rb:X} 0x{size:X}", "==> (" + "|".join(old) + ")")]
+    cmds += [("mmc dev 0", None), ("mmc rescan", None)]
+    for f, crc, off, size, la, rb, old in regions:                     # гейт 2: файлы с p1 = те, что в STOP (CRC.txt)
+        cmds += [(f"fatload mmc 0:1 0x{la:X} {f}", f"{size} bytes read", BIG), (f"crc32 0x{la:X} 0x{size:X}", "==> " + crc)]
+    for f, crc, off, size, la, rb, old in (regions if write else []):
+        cmds += [(f"sf erase 0x{off:X} 0x{size:X}", r"Erased: OK", BIG), (f"sf write 0x{la:X} 0x{off:X} 0x{size:X}", r"Written: OK", BIG),
+                 (f"sf read 0x{rb:X} 0x{off:X} 0x{size:X}", r"Read: OK", BIG), (f"crc32 0x{rb:X} 0x{size:X}", "==> " + crc),
+                 (f"cmp.b 0x{la:X} 0x{rb:X} 0x{size:X}", r"were the same", BIG)]
+    return cmds + ([("reset", None)] if write else [])
+
+
+STAGES["nor-openipc-check"] = nor_write(OPENIPC_REGIONS, write=False)   # RAM-only репетиция: гейты + файлы с p1 + crc, без записи
+STAGES["nor-openipc-write"] = nor_write(OPENIPC_REGIONS)                # NOR_WRITE=yes, только владелец (STOP-nor.md)
+STAGES["nor-stock-restore"] = nor_write(STOCK_REGIONS)                  # возврат стока из mtd-*.bin + env-old.bin с p1
+WRITE_STAGES = {WRITE_STAGE, "nor-openipc-write", "nor-stock-restore"}
 PROMPT = re.compile(rb"\n([^\r\n#]{1,24})# ")
 
 
@@ -186,21 +246,28 @@ def prompt_of(buf):
 
 
 def norm(c):
-    return c if isinstance(c, tuple) else (c, None)
+    c = c if isinstance(c, tuple) else (c, None)
+    return c if len(c) == 3 else (c[0], c[1], 30)   # 09.10: третий элемент — таймаут ожидания приглашения, с (sf/fatload 7 МиБ > 30 с)
 
 
 def write_allowed(stage, env):
-    return stage == WRITE_STAGE and env.get("NOR_WRITE") == "yes"
+    return stage in WRITE_STAGES and env.get("NOR_WRITE") == "yes"
 
 
 def selftest():
     assert prompt_of(b"\r\nSigmaStar # \r\nSigmaStar # \r\nSigmaStar # ") == b"SigmaStar # "
     assert prompt_of(b"\r\nSigmaStar # \r\nSigmaStar # ") is None
     for name, cmds in STAGES.items():
-        hits = [c for c, _ in map(norm, cmds) if FORBIDDEN.search(c)]
-        assert bool(hits) == (name == WRITE_STAGE), (name, hits)   # запись только в WRITE_STAGE, и там она есть
+        hits = [c for c, _, _ in map(norm, cmds) if FORBIDDEN.search(c)]
+        assert bool(hits) == (name in WRITE_STAGES), (name, hits)   # запись только в WRITE_STAGES, и там она есть
     assert not write_allowed(WRITE_STAGE, {}) and not write_allowed("2a-p4", {"NOR_WRITE": "yes"})
-    assert write_allowed(WRITE_STAGE, {"NOR_WRITE": "yes"})
+    assert all(write_allowed(w, {"NOR_WRITE": "yes"}) for w in WRITE_STAGES)
+    for w in ("nor-openipc-write", "nor-stock-restore"):   # порядок записи: rootfs → kernel → env; env последним, чтобы при любом ABORT sdboot остался
+        offs = [c.split()[2] for c, _, _ in map(norm, STAGES[w]) if c.startswith("sf erase")]
+        assert offs == ["0x250000", "0x50000", "0x4F000"], (w, offs)
+        assert not any(c.startswith("sf erase 0x0 ") or "0xFE0000" in c or "0xFF0000" in c or "0x9B0000" in c for c, _, _ in map(norm, STAGES[w]))
+    assert [c for c, _, _ in map(norm, STAGES["nor-openipc-check"]) if c.startswith("sf ")] == ["sf probe 0"] + [c for c, _, _ in map(norm, STAGES["nor-openipc-check"]) if c.startswith("sf read")]
+    assert "root=/dev/mtdblock2" in NOR_ARGS and "init=/init4.sh" in NOR_ARGS
     assert FORBIDDEN.search("sf update 0x22000000 0x50000 0x200000")
     assert FORBIDDEN.search("saveenv")
     assert not FORBIDDEN.search("sf read 0x22000000 0x50000 0x200000")
@@ -211,7 +278,7 @@ def main(stage):
     import serial
     cmds = [norm(c) for c in STAGES[stage]]
     if not write_allowed(stage, os.environ):
-        assert not any(FORBIDDEN.search(c) for c, _ in cmds), "запись в NOR только этапом nor-env-write с NOR_WRITE=yes"
+        assert not any(FORBIDDEN.search(c) for c, _, _ in cmds), f"запись в NOR только этапами {sorted(WRITE_STAGES)} с NOR_WRITE=yes"
     port = serial.Serial(os.environ.get("UART_PORT", "/dev/ttyAMA2"), 115200, timeout=0.02)
     out = HERE / time.strftime(f"stage-{stage}-%Y%m%d-%H%M%S.log")
     log, buf = open(out, "wb"), b""
@@ -244,10 +311,10 @@ def main(stage):
             if not prompt:
                 sys.exit("\nU-Boot не остановился")
             time.sleep(0.3); rx()
-            for c, expect in cmds:
+            for c, expect, tmo in cmds:
                 mark = len(buf)
                 port.write(c.encode() + b"\r")
-                t = time.time() + 30
+                t = time.time() + tmo
                 while time.time() < t and buf.rfind(prompt) <= mark + len(c):
                     rx()
                     if c.startswith(("bootm", "run ", "reset")) and (b"Starting kernel" in buf[mark:] or RESET.search(buf[mark:])):
@@ -256,7 +323,7 @@ def main(stage):
                     say(f"\n--- ABORT: после `{c}` нет ответа /{expect}/ — дальше ничего не шлю, камера в U-Boot")
                     break
             else:
-                passive = stage == WRITE_STAGE
+                passive = stage in WRITE_STAGES
             say(f"\n--- команды этапа {stage} посланы; консоль: echo CMD > {FIFO} ; лог {out}")
         buf = b""
         hooked = False   # постбут-хук: init4.sh напечатал SSH_READY_ip → uart/postboot.sh (autorun.sh с p1 карты по SSH), один раз
@@ -279,11 +346,11 @@ def main(stage):
                 say("\n--- #passive: Enter больше не шлю")
             elif line.startswith(b"#stage "):   # 29.09: `#stage 2a-p4-env` — какой этап слать при СЛЕДУЮЩЕМ перехвате U-Boot
                 name = line.split()[1].decode(errors="replace")   # (после reboot -f), без перевзвода процесса владельцем.
-                if name in STAGES and name != WRITE_STAGE:        # только RAM-этапы: запись в NOR — отдельный запуск с NOR_WRITE=yes
+                if name in STAGES and name not in WRITE_STAGES:   # только RAM-этапы: запись в NOR — отдельный запуск с NOR_WRITE=yes
                     stage, cmds, passive = name, [norm(c) for c in STAGES[name]], False   # 00:40: и после пассивного этапа
                     say(f"\n--- #stage: следующий перехват U-Boot = этап {stage}")
                 else:
-                    say(f"\n--- #stage {name}: отказ (нет такого или это {WRITE_STAGE})")
+                    say(f"\n--- #stage {name}: отказ (нет такого или это запись: {sorted(WRITE_STAGES)})")
             elif line:
                 port.write(line.rstrip(b"\n") + b"\n")
             else:
@@ -295,7 +362,7 @@ if __name__ == "__main__":
     if a == ["--selftest"]:
         selftest()
     elif a[:1] == ["--dry-run"] and a[1:2] and a[1] in STAGES:
-        print("\n".join(f"{c}\t\t# ожидаю /{e}/" if e else c for c, e in map(norm, STAGES[a[1]])))
+        print("\n".join(f"{c}\t\t# ожидаю /{e}/" + (f", до {t} с" if t != 30 else "") if e else c for c, e, t in map(norm, STAGES[a[1]])))
     elif len(a) == 1 and a[0] in STAGES:
         main(a[0])
     else:

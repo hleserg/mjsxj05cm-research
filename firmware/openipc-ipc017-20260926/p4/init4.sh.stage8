@@ -1,7 +1,5 @@
 #!/bin/sh
-# init=/init4.sh: p3 карты (sd-stage8.img) ИЛИ rootfs в NOR (make-rootfs-nor.sh). v8 = v7 + режим NOR (09.10.2026):
-#   имя хоста по root= из cmdline (mjsxj05cm-sd / mjsxj05cm-nor); autorun.sh берётся с p1 карты, а без карты — из /opt/p1 (копия
-#   p4/*.sh внутри squashfs, кладёт make-rootfs-nor.sh). v7 (28.09): rootfs OpenIPC + этот скрипт + /wpa.conf + /shadow4 + хук autorun.sh с p1.
+# init=/init4.sh на p3 карты (sd-stage8.img, v7 = v6 + хук autorun.sh с p1): rootfs OpenIPC + этот скрипт + /wpa.conf + /shadow4. 28.09.2026.
 # Цель: Wi-Fi (MT7601U) + SSH (dropbear, пароль root) прямо с карты, БЕЗ записи в NOR.
 # v6 (после sd-stage5): wpa.conf как у стока (key_mgmt/proto/scan_ssid), `iwconfig mode Managed` перед wpa_supplicant,
 # лог wpa_supplicant в /tmp/wpa.log и печать состояния каждые 5 с; udhcpc со своим скриптом (без fallback-IP 192.168.1.10
@@ -20,8 +18,7 @@ S INIT4_START; uname -a; cat /proc/cmdline | sed 's/mtdparts=[^ ]*/mtdparts=.../
 mkdir /tmp/etc && cp -a /etc/. /tmp/etc/ && mount --bind /tmp/etc /etc
 cp /shadow4 /etc/shadow && chmod 600 /etc/shadow
 sed -i 's#^root:.*#root:x:0:0:root:/root:/bin/sh#' /etc/passwd
-case "$(cat /proc/cmdline)" in *root=/dev/mtdblock*) H=mjsxj05cm-nor ;; *) H=mjsxj05cm-sd ;; esac   # v8: кто я — NOR или карта
-mkdir -p /etc/dropbear; hostname $H
+mkdir -p /etc/dropbear; hostname mjsxj05cm-sd
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 S mtd; cat /proc/mtd
 S WIFI; /etc/wireless/usb mt7601u-ssc325-chuangmi-ipc017; echo "usb rc=$?"   # gpio 14 -> 1, modprobe mt7601sta
@@ -39,7 +36,7 @@ case "$1" in
 esac
 EOF
 chmod +x /tmp/dhcp.sh
-udhcpc -i wlan0 -b -t 40 -T 3 -s /tmp/dhcp.sh -x hostname:$H; echo "udhcpc rc=$?"
+udhcpc -i wlan0 -b -t 40 -T 3 -s /tmp/dhcp.sh -x hostname:mjsxj05cm-sd; echo "udhcpc rc=$?"
 n=0; while [ $n -lt 90 ] && ! ip -4 addr show wlan0 | grep -q inet; do
   sleep 5; n=$((n+5)); echo "t=${n}s $(wpa_cli -i wlan0 status 2>&1 | grep -E '^(wpa_state|key_mgmt|pairwise)' | tr '\n' ' ')"
 done
@@ -49,11 +46,8 @@ S SSH; dropbear -R -p 22 -K 300; echo "dropbear rc=$?"; sleep 2; pidof dropbear
 S SSH_READY_ip; ip -4 addr show wlan0 | sed -n 's/.*inet \([0-9.]*\).*/\1/p'
 # v7 (sd-stage8): хук автозапуска с FAT p1 карты — autorun.sh (NTP со шлюза, cam-up.sh, ptz init) без пересборки squashfs.
 # Фоном: сломанный autorun не должен стоить SSH и консоли. Лог /tmp/autorun.log. p1 монтируется ro (/mnt на squashfs read-only).
-# v8: карты нет (или на p1 нет autorun.sh) → тот же набор скриптов из /opt/p1 внутри rootfs (только в сборке для NOR).
 S AUTORUN_p1
-mkdir -p /tmp/p1; mount -o ro -t vfat /dev/mmcblk0p1 /tmp/p1 || echo "p1 не смонтирован (карты нет?) — autorun из /opt/p1"
-AR=/tmp/p1/autorun.sh; [ -f $AR ] || AR=/opt/p1/autorun.sh
-echo "autorun: $AR"; [ -f $AR ] && sh $AR > /tmp/autorun.log 2>&1 &
+mkdir -p /tmp/p1; mount -o ro -t vfat /dev/mmcblk0p1 /tmp/p1 && [ -f /tmp/p1/autorun.sh ] && sh /tmp/p1/autorun.sh > /tmp/autorun.log 2>&1 &
 # ---------- консоль: неинтерактивный sh из cat (см. шапку). Не слать '11111'/'22222' (магия ms_uart) ----------
 S INIT4_SHELL_forever
 while :; do cat | /bin/sh; sleep 2; done

@@ -15,7 +15,7 @@ lsmod | grep -q "^sensor_gc2053_mipi " || insmod $M/sensor_gc2053_mipi.ko chmap=
 # 28.09 21:52: SUB (video1 704x576@15) включаем после heap-теста (mma_heap 0x1800000) — отдельный ребут; motionDetect — ребут #3 (21:55, после SUB ОК).
 # 28.09 23:55: ONVIF-логин admin + пароль с p1 (onvif-password.txt, в репо НЕТ — p4/secret/): без onvif.password majestic
 # отвергает WSSE PasswordDigest (Onvifer, ODM) — в /etc/shadow только хеш, дайджест считать не из чего.
-OPW=$(sed -n 1p /tmp/p1/onvif-password.txt 2>/dev/null)
+OPW=$(cat /tmp/p1/onvif-password.txt /opt/p1/onvif-password.txt 2>/dev/null | sed -n 1p)   # v8: без карты — копия в rootfs NOR
 # 29.09 16:55: p4 карты (FAT32 DATA, docs/p4-plan.md) — локальная запись majestic «вкруг» в /tmp/p4; нет p4 → records остаются выкл.
 # 30.09: лог ядра/системы на p4 (переживает зависание; читать после пауэр-цикла), ротация 2×1 МБ.
 mkdir -p /tmp/p4; mount -t vfat -o rw,noatime /dev/mmcblk0p4 /tmp/p4 && REC='/^records:/,/^[a-z]/ { s/enabled: false/enabled: true/; s|path: .*|path: /tmp/p4/%F|; s/maxUsage: 95/maxUsage: 90/ }' || REC=''

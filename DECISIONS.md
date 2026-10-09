@@ -723,3 +723,18 @@ RTSP камеры с 28.09 закрыт логином (ONVIF admin). Frigate/go
 ## 03.10 23:09 — аптайм-тест пройден, критерий «неделя» снят, надзор автономный
 
 С watchdog (30.09 16:40) два прогона без зависаний: ~2 сут 2 ч (до 02.10 ~18:28, в тот день перезагружались сеть и Pi, UART тогда не писался — причина ребута камеры не зафиксирована) и 1 сут 3 ч 41 м (до 03.10 22:17 — владелец шевелил провода; UART-лог показал холодный старт `IPL`, не панику и не watchdog). Владелец: «а нахрена нам вообще аптайм двое суток» — согласен: корпус ничего не защищает, кроме доступа к карте; защиту от зависаний даёт watchdog, а наблюдение — `tools/health/cam-health.sh` в crontab Pi (`*/10`, лог `~/.local/state/cam-health/health.log`, Telegram при смене состояния) и `uart-logger.service` (user-юнит, `/dev/ttyAMA2` → `uart/boot-console.log`; оверлей `uart2-pi5` в `/boot/firmware/config.txt`). Урок 02.10: надзор из сессии агента умирает вместе с сессией и ребутом Pi — всё, что должно следить, живёт в cron/systemd. Корпус — владелец собирает на днях.
+
+## 09.10 15:43 — OpenIPC в NOR: подготовлено, запись только по STOP-nor.md
+
+Владелец: «делай nor» и «оба способа прошивки в git, в README как сделать какой, автоматизировано». Советник: это разрешение готовить, не писать.
+
+Факты, на которых стоит решение:
+1. Ядро OpenIPC само режет NOR на 7 разделов (CMDLINE_EXTEND: boot/kernel/rootfs/rootfs_data/env/config/factory) — `mtdparts` в bootargs и `saveenv` не нужны (закрывает вопрос от 29.09).
+2. Из Linux камеры NOR писать нельзя: `[FSP] Unknown flash type (0xFF,0xFF,0xFF)` — ядро не опознало EN25QH128A, чтение сходится с дампом, запись не проверена. Пишет только U-Boot (`SF: Detected nor0 … 16 MiB`), значит stage.py по UART, как env.
+3. kernel/rootfs в NOR до сих пор сток (crc32 `a5447ccc`/`c41c56d0` = свои mtd-дампы) — гейты «до стирания» действительны.
+
+Решено (вариант b из двух): rootfs для NOR — свой squashfs ровно как p3 карты (vanilla ipc017 + init4.sh + wpa.conf + shadow4) плюс `/opt/p1/` с autorun/cam-up/ptz/demo.sh и паролем ONVIF, чтобы камера поднималась без карты; DATA (mtd3) не трогаем, родной `/init` OpenIPC и его запись в NOR из userland не используем. Отвергнут вариант «rootfs OpenIPC как есть + overlay в rootfs_data»: он требует стирать DATA и запускать sysupgrade/fw_setenv — запрещено с 28.09. Цена: смена Wi-Fi/пароля = пересборка rootfs (`make-rootfs-nor.sh`) и новая запись одной области по STOP.
+
+Оба режима в одном ядре и одном init: init4.sh v8 определяет себя по `root=` в /proc/cmdline (hostname `mjsxj05cm-nor`/`-sd`, autorun с карты или из /opt/p1). Переключение без записи во флеш — `tools/boot-mode.sh sd|nor` (переименование uImage.ssc325 на p1; `bootcmd=run sdboot; run norboot` в env v4 уже делает остальное). env v5 отличается от v4 только `norargs` (root=/dev/mtdblock2), crc32 `818e914a`; mkenv.py без `--nor` по-прежнему воспроизводит v4 байт в байт.
+
+Запись: три области в порядке rootfs → kernel → env (env последним — при любом ABORT карта грузится как сейчас), каждая erase → write → read → crc32 → cmp.b, гейты до стирания принимают сток | 0xFF | новое (повтор после ABORT). `nor-stock-restore` тем же билдером возвращает сток из mtd-*.bin и env-old.bin с p1 — закрывает пункт «возврат на сток» в FULL-CONTROL-ACCEPTANCE. Таймаут на команду стал параметром этапа (600 с для 7 МиБ по SPI). tools/p1-put.sh переписан на http.server + wget (dropbear рвёт SSH-команды >8 КБ). Файлы rootfs-nor.* и env-new-v5.bin секретные — в git только crc/sha (CRC.txt).

@@ -46,3 +46,6 @@ uboot/*.bin
 # фото платы для README (наклейка с MAC/QR замазана)
 !docs/img/
 !docs/img/*.jpg
+
+# 09.10: распаковка rootfs для NOR (make-rootfs-nor.sh)
+firmware/openipc-ipc017-20260926/*.root/

@@ -2,6 +2,7 @@
 """Собрать новый 4K-блок U-Boot env (0x4F000) из стокового дампа: bootcmd = карта (SD p3, init4.sh), откат на NOR.
 Только готовит файл и печатает sha256 старого/нового блока для STOP-запроса. ВО FLASH НИЧЕГО НЕ ПИШЕТ.
   python3 uboot/mkenv.py [out.bin]      # out по умолчанию — /tmp/env-new.bin (содержит MAC → не в репо)
+  python3 uboot/mkenv.py uboot/env-new-v5.bin --nor=openipc   # 09.10: v5 — norargs для OpenIPC из NOR (root=/dev/mtdblock2); без --nor → v4
   MMA_SZ=0x1800000 python3 uboot/mkenv.py   # куча как в uart/stage.py
 Факты (research/uboot-env-notes.md 28.09): env @0x4F000 размер 0x1000, CRC32 первых 4 байт по остальным 4092,
 переменные 'k=v\\0', конец '\\0\\0', хвост нулями (так пишет saveenv); saveenv стирает только этот 4K-сектор;
@@ -16,7 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "uart"))
-from stage import SD_ARGS, SDBOOT, NORBOOT  # noqa: E402  — единый источник с uart/stage.py (MMA_SZ учитывается там)
+from stage import SD_ARGS, SDBOOT, NORBOOT, NOR_ARGS  # noqa: E402  — единый источник с uart/stage.py (MMA_SZ учитывается там)
 
 OFF, SIZE = 0x4F000, 0x1000
 
@@ -39,12 +40,12 @@ def mask(s):
     return re.sub(r"([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}", "MAC", re.sub(r"(\d+\.){3}\d+", "IP", s))
 
 
-def main(out):
+def main(out, nor="stock"):   # 09.10: nor=openipc → norargs для OpenIPC из NOR (env v5); stock → v4 (воспроизводимо)
     old = (ROOT / "spi/original-01.bin").read_bytes()[OFF:OFF + SIZE]
     env = parse(old)
     assert build(env) == old, "пересборка стокового env не побайтовая — формат понят неверно"
     new_env = dict(env, bootcmd="run sdboot; run norboot", sdboot=SDBOOT, norboot=NORBOOT,
-                   sdargs=SD_ARGS, norargs=env["bootargs"])
+                   sdargs=SD_ARGS, norargs=env["bootargs"] if nor == "stock" else NOR_ARGS)
     new = build(new_env)
     Path(out).write_bytes(new)
     # crc32 по всем 4096 байтам — то, что печатает U-Boot `crc32 <addr> 0x1000` (после sf read / fatload): единственная проверка внутри U-Boot.
@@ -58,4 +59,5 @@ def main(out):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "/tmp/env-new.bin")
+    a = [x for x in sys.argv[1:] if not x.startswith("--")]
+    main(a[0] if a else "/tmp/env-new.bin", next((x[6:] for x in sys.argv[1:] if x.startswith("--nor=")), "stock"))

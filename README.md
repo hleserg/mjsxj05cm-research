@@ -83,8 +83,37 @@ Linux с `sfdisk`, `mkfs.vfat`, `mksquashfs`, `python3`.
    старого блока со своим дампом, после записи — CRC нового, при любом расхождении останавливается.
    Сначала прочитайте [uboot/STOP-env.md](uboot/STOP-env.md) целиком.
 
-Откат на любом шаге: вынуть карту. Загрузчик не найдёт её и загрузит стоковую Xiaomi из NOR.
+Откат на любом шаге до раздела «Два режима»: вынуть карту. Загрузчик не найдёт её и загрузит стоковую Xiaomi из NOR.
 Если испортить блок переменных, U-Boot возьмёт дефолтные — камера остаётся живой и лечится по UART.
+
+## Два режима: карта и NOR
+
+После шага 5 загрузчик делает `run sdboot; run norboot`: есть `uImage.ssc325` на первом разделе карты — грузится
+карта, нет — грузится то, что лежит в NOR. Пока там сток Xiaomi; шаг 6 кладёт туда OpenIPC, и тогда камера
+работает **и без карты** (записи при этом некуда — только с картой на p4). Выбор режима — без записи во флеш,
+переименованием файла на карте:
+
+```bash
+tools/boot-mode.sh status   # откуда загружена сейчас (mjsxj05cm-sd / mjsxj05cm-nor) и что будет при следующей загрузке
+tools/boot-mode.sh nor      # следующая загрузка — из NOR   (uImage.ssc325 → uImage.ssc325.off)
+tools/boot-mode.sh sd       # следующая загрузка — с карты  (обратно)
+python3 uart/camssh.py "sync; reboot -f"
+```
+
+6. **OpenIPC в NOR** (три области: rootfs `0x250000`, ядро `0x50000`, env `0x4F000`; U-Boot, DATA, config, factory не
+   трогаются). Сборка и запись автоматизированы, запись — тем же `stage.py` с проверкой CRC до стирания и после записи:
+   ```bash
+   cd firmware/openipc-ipc017-20260926 && ./make-rootfs-nor.sh && cd ../..   # rootfs как на карте + /opt/p1 для работы без карты
+   python3 uboot/mkenv.py uboot/env-new-v5.bin --nor=openipc                  # env v5: norargs → root=/dev/mtdblock2, init=/init4.sh
+   tools/p1-put.sh firmware/openipc-ipc017-20260926/{rootfs-nor.pad.bin,kernel.pad.bin} uboot/env-new-v5.bin   # на карту (http+wget)
+   python3 uart/stage.py --dry-run nor-openipc-check                           # репетиция: гейты и файлы, без записи
+   NOR_WRITE=yes STAGE_WAIT=86400 nohup python3 uart/stage.py nor-openipc-write > /dev/null 2>&1 &   # сама запись, ~15 мин
+   ```
+   Порядок записи rootfs → ядро → env: при обрыве на любом шаге env ещё старый, и камера как прежде грузит карту.
+   Сначала прочитайте [uboot/STOP-nor.md](uboot/STOP-nor.md) целиком — там таблица CRC, репетиции и что делать при отказе.
+
+Откат на сток после шага 6: `nor-stock-restore` в `stage.py` — те же шаги с `mtd-kernel.bin`, `mtd-rootfs.bin` и
+`env-old.bin` из вашего дампа (шаг 2) на карте. Вынутая карта после шага 6 даёт OpenIPC из NOR, а не сток.
 
 После загрузки камера отдаёт:
 
@@ -127,11 +156,11 @@ Home Assistant и Frigate, пишет на карту и ни разу не хо
 | Каталог | Что там |
 |---|---|
 | `uart/` | скрипты для консоли камеры: захват лога, дамп флеша, SSH, этапы репетиций и записи env |
-| `uboot/` | сборка блока переменных U-Boot и STOP-инструкция перед единственной записью во флеш |
+| `uboot/` | сборка блока переменных U-Boot (`mkenv.py`), STOP-инструкции перед записями во флеш: env (`STOP-env.md`) и OpenIPC в NOR (`STOP-nor.md`) |
 | `firmware/openipc-ipc017-20260926/` | сборка образа карты, стартовые скрипты (`p4/`), контрольные суммы |
 | `firmware/` | разбор стоковых прошивок Xiaomi: раскладка, binwalk, strings |
 | `research/` | источники и чужие наработки, карты GPIO, заметки по PTZ, звуку, событиям, интеграции |
-| `tools/` | загрузка файлов на карту по SSH, ONVIF-опрос, `tools/health/` — автономный надзор (cron + UART-логгер) |
+| `tools/` | загрузка файлов на карту (`p1-put.sh`), переключение карта/NOR (`boot-mode.sh`), ONVIF-опрос, `tools/health/` — автономный надзор (cron + UART-логгер) |
 | `docs/` | пост с историей, фото платы, план раздела под записи, рабочие заметки |
 | `STATUS.md`, `DECISIONS.md` | текущее состояние железа/прошивки и журнал решений |
 
