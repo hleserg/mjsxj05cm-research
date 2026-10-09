@@ -72,7 +72,7 @@ NOR_WRITE=yes STAGE_WAIT=86400 nohup python3 uart/stage.py nor-openipc-write > /
 # я, с согласия: timeout 12 python3 uart/camssh.py "sync; reboot -f"
 tail -f uart/stage-nor-openipc-write-*.log       # ждём 3× "were the same" → reset → автозагрузка с карты (uImage на p1 есть)
 ```
-Переменные-гейты по умолчанию берутся из `CRC.txt` (`ENV_OLD_CRC=25f375ed`, `ENV_NEW_CRC=818e914a`, `ROOTFS_NOR_CRC=1b23dd8c`);
+Переменные-гейты по умолчанию берутся из `CRC.txt` (`ENV_OLD_CRC=25f375ed`, `ENV_NEW_CRC=818e914a`, `ROOTFS_NOR_CRC`=crc текущего rootfs-nor.pad.bin; с 09.10 22:35 это v2 `2ac386df`, v1 `1b23dd8c` — `rootfs-nor-v1.pad.bin`, см. STOP-2);
 `EXTRA_OLD_CRC=…` — только для повтора после обрыва (см. выше).
 
 ## Проверено перед «да» (09.10)
