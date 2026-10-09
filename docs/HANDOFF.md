@@ -170,3 +170,7 @@ STATUS.md, FULL-CONTROL-ACCEPTANCE.md.
 ## 10.10 00:03 — карта p3 переписана образом v2
 
 «Давай доделывать все» (23:4x) = согласие на p3. Проверено до записи: p3 на карте = область p3 из sd-stage8.img (md5 9a0b9f24…, резерв на Pi). Владелец через `!` (классификатор запретил мне dd в раздел и даже boot-mode.sh): гейты (NOR-режим, p3 не смонтирован, размер 32768 секторов, md5 источника) → `dd if=/tmp/p1/rootfs-nor.pad.bin of=/dev/mmcblk0p3 bs=1M conv=fsync` → drop_caches → md5 head 7733248 = 430bf02c…, head 4923392 = 51bbcfb7… (= rootfs-nor.squashfs v2). p2 (v1 с репетиции 2a-p2) не трогали — не в пути загрузки. Дальше: тест sd-режима (boot-mode.sh sd + reboot, владелец) → `mjsxj05cm-sd`, root=/dev/mmcblk0p3, .30.53 → boot-mode.sh nor + reboot.
+
+### 10.10 01:09 — тест sd-режима с p3 v2 ПРОЙДЕН
+
+Владелец 01:08: `tools/boot-mode.sh sd` + reboot. Через ~60 с: hostname `mjsxj05cm-sd`, `root=/dev/mmcblk0p3`, `init=/init4.sh` (md5 4fc97a6f = репо), majestic/dropbear живы, wpa_state COMPLETED на beta-cam (freq 2442), ssh/RTSP 554/HTTP 80 на 192.168.30.53. Оба режима (NOR и карта) теперь на новом Wi-Fi. Дальше: владелец возвращает NOR (`boot-mode.sh nor` + reboot), затем закрытие задачи.
