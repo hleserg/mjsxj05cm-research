@@ -203,6 +203,7 @@ BIG = 1800
 EXTRA_OLD = tuple(x for x in os.environ.get("EXTRA_OLD_CRC", "").split(",") if x)
 ERASED = {0x1000: "f154670a", 0x200000: "9a4109e5", 0x760000: "024d6fec"}   # crc32 области из 0xFF (посчитано 09.10)
 ROOTFS_NOR_CRC = os.environ.get("ROOTFS_NOR_CRC", crc_txt("rootfs-nor.pad.bin"))
+ROOTFS_NOR_V1_CRC = crc_txt("rootfs-nor-v1.pad.bin")   # 1b23dd8c — rootfs v1 (старый Wi-Fi), в NOR с 09.10 21:33; CRC.txt строку не трогать
 KERNEL_PAD_CRC = crc_txt("kernel.pad.bin")          # 6b5590f4 = uImage.ssc325 + 0xFF до 0x200000
 STOCK_ROOTFS_CRC, STOCK_KERNEL_CRC, STOCK_ENV_CRC = crc_txt("mtd-rootfs.bin"), crc_txt("mtd-kernel.bin"), "6c1674b6"
 # (имя файла на p1, crc32 файла, смещение NOR, размер, адрес файла в RAM, адрес readback, допустимые crc области до записи)
@@ -212,7 +213,7 @@ OPENIPC_REGIONS = [
     ("env-new.bin",        ENV_NEW_CRC,    0x4F000,  0x1000,   0x23400000, 0x23500000, (ENV_OLD_CRC, ERASED[0x1000], ENV_NEW_CRC)),
 ]
 STOCK_REGIONS = [
-    ("mtd-rootfs.bin", STOCK_ROOTFS_CRC, 0x250000, 0x760000, 0x22000000, 0x22800000, (ROOTFS_NOR_CRC, ERASED[0x760000], STOCK_ROOTFS_CRC)),
+    ("mtd-rootfs.bin", STOCK_ROOTFS_CRC, 0x250000, 0x760000, 0x22000000, 0x22800000, (ROOTFS_NOR_CRC, ROOTFS_NOR_V1_CRC, ERASED[0x760000], STOCK_ROOTFS_CRC)),
     ("mtd-kernel.bin", STOCK_KERNEL_CRC, 0x50000,  0x200000, 0x23000000, 0x23200000, (KERNEL_PAD_CRC, ERASED[0x200000], STOCK_KERNEL_CRC)),
     ("env-old.bin",    STOCK_ENV_CRC,    0x4F000,  0x1000,   0x23400000, 0x23500000, (ENV_NEW_CRC, ENV_OLD_CRC, ERASED[0x1000], STOCK_ENV_CRC)),
 ]
@@ -235,7 +236,11 @@ def nor_write(regions, write=True):
 STAGES["nor-openipc-check"] = nor_write(OPENIPC_REGIONS, write=False)   # RAM-only репетиция: гейты + файлы с p1 + crc, без записи
 STAGES["nor-openipc-write"] = nor_write(OPENIPC_REGIONS)                # NOR_WRITE=yes, только владелец (STOP-nor.md)
 STAGES["nor-stock-restore"] = nor_write(STOCK_REGIONS)                  # возврат стока из mtd-*.bin + env-old.bin с p1
-WRITE_STAGES = {WRITE_STAGE, "nor-openipc-write", "nor-stock-restore"}
+# 09.10 v2: только rootfs (wpa.conf с beta-cam + старой сетью), kernel/env не трогаются; гейт «в NOR сейчас» = v1 (1b23dd8c), STOP-nor.md «STOP-2».
+ROOTFS_V2_REGION = [("rootfs-nor.pad.bin", ROOTFS_NOR_CRC, 0x250000, 0x760000, 0x22000000, 0x22800000, (ROOTFS_NOR_V1_CRC, ERASED[0x760000], ROOTFS_NOR_CRC))]
+STAGES["nor-rootfs-check"] = nor_write(ROOTFS_V2_REGION, write=False)
+STAGES["nor-rootfs-write"] = nor_write(ROOTFS_V2_REGION)
+WRITE_STAGES = {WRITE_STAGE, "nor-openipc-write", "nor-stock-restore", "nor-rootfs-write"}
 PROMPT = re.compile(rb"\n([^\r\n#]{1,24})# ")
 
 
@@ -271,7 +276,10 @@ def selftest():
         assert not any(c.startswith("sf erase 0x0 ") or "0xFE0000" in c or "0xFF0000" in c or "0x9B0000" in c for c, _, _ in map(norm, STAGES[w]))
     assert [c for c, _, _ in map(norm, STAGES["nor-openipc-check"]) if c.startswith("sf ")] == ["sf probe 0"] + [c for c, _, _ in map(norm, STAGES["nor-openipc-check"]) if c.startswith("sf read")]
     assert "root=/dev/mtdblock2" in NOR_ARGS and "init=/init4.sh" in NOR_ARGS   # mtd2 = rootfs 0x250000 под ядром OpenIPC, /proc/mtd 09.10
-    assert all(t >= 1800 for c, _, t in map(norm, STAGES["nor-openipc-write"]) if c.startswith(("sf erase", "sf write")))
+    assert all(t >= 1800 for w in ("nor-openipc-write", "nor-rootfs-write") for c, _, t in map(norm, STAGES[w]) if c.startswith(("sf erase", "sf write")))
+    assert [c.split()[2] for c, _, _ in map(norm, STAGES["nor-rootfs-write"]) if c.startswith("sf erase")] == ["0x250000"]   # v2: только rootfs
+    assert not any("0x4F000" in c or "0x50000" in c or "0x9B0000" in c or "0xFE0000" in c for c, _, _ in map(norm, STAGES["nor-rootfs-write"]) if c.startswith("sf "))
+    assert ROOTFS_NOR_V1_CRC == "1b23dd8c" and ROOTFS_NOR_V1_CRC in STAGES["nor-rootfs-write"][2][1]
     assert any(re.search(r"Total of 7733248 byte", e or "") for _, e, _ in map(norm, STAGES["nor-openipc-write"]))
     assert FORBIDDEN.search("sf update 0x22000000 0x50000 0x200000")
     assert FORBIDDEN.search("saveenv")

@@ -105,3 +105,29 @@ tail -f uart/stage-nor-openipc-write-*.log       # ждём 3× "were the same" 
 | env v5 | 0x4F000 | 4096 | OK/OK | 818e914a | 4096 |
 
 После `reset` загрузчик по env v5 выбрал `sdboot` (uImage на p1): камера поднялась с карты p3 (`mjsxj05cm-sd`), ssh, majestic, dropbear, RTSP/ONVIF 401 (= auth), postboot ок 20:34. Откат через карту работает. Приёмка режима NOR — следующий шаг (`tools/boot-mode.sh nor` + reboot).
+
+## STOP-2 (22:37 09.10) — только rootfs: Wi-Fi beta-cam (v2), kernel и env не трогаются
+
+**Что:** одна область NOR — rootfs 0x250000..0x9B0000 (0x760000). Новый образ = тот же состав, что v1, плюс `/wpa.conf` с двумя сетями:
+старая (как была) и `beta-cam` (WPA2-PSK, psk 64-hex, priority=10) — камера выбирает beta-cam, при её пропаже сама падает на старую.
+**Зачем:** живой RAM-тест 22:28 (`wpa_cli add_network`, без записи) прошёл: COMPLETED, 192.168.30.53 (резерв DHCP владельца), ssh/RTSP/ONVIF
+с Pi доступны; после reboot RAM-конфиг пропадёт → нужна запись rootfs. Карта p3 (sd-режим) остаётся со старым wpa.conf — отдельно.
+**Гейты (stage `nor-rootfs-write`, `uart/stage.py`):** в NOR сейчас `1b23dd8c` (v1, строка `rootfs-nor-v1.pad.bin` в CRC.txt) или `024d6fec`
+(стёрто) или `2ac386df` (уже v2); файл `rootfs-nor.pad.bin` на p1 = `2ac386df` (md5 430bf02c…, залито 22:37 через `tools/p1-put.sh` v2 = ssh-push,
+т.к. из Cam-сегмента камера до Pi не достаёт). Selftest ok: erase только 0x250000; 0x0/0x4F000/0x50000/0x9B0000/0xFE0000/0xFF0000 не трогаются.
+Репетиция без записи: `python3 uart/stage.py --dry-run nor-rootfs-check` / сам этап `nor-rootfs-check` (RAM-only).
+**Откат:** `nor-stock-restore` принимает и v1, и v2 в гейте; «старый Wi-Fi» остаётся в v2 как сеть №0 — отката ради Wi-Fi не нужно.
+**Обрыв посреди записи:** как в STOP выше — камера грузится с карты (uImage.ssc325.off → переименовать обратно, `tools/boot-mode.sh sd`),
+владелец повторяет этап с `EXTRA_OLD_CRC=<crc из лога>`.
+**После записи:** камера на beta-cam 192.168.30.53; `uart/camssh.py`, `tools/health/cam-health.sh`, `tools/onvif-pull.sh` уже смотрят туда
+(CAM_HOST=192.168.1.53 — старый адрес). Frigate на bigpc: rtsp 192.168.1.53 → 192.168.30.53 (владелец). cam-health во время записи
+скажет «НЕ ОТВЕЧАЕТ» — ожидаемо.
+
+### Команды STOP-2 (после «да»; только владелец, через `!`)
+```bash
+cd ~/mjsxj05cm-research && pkill -f "^python3 uart/stage.py"; systemctl --user stop uart-logger   # один читатель ttyAMA2
+NOR_WRITE=yes STAGE_WAIT=86400 nohup python3 uart/stage.py nor-rootfs-write > /dev/null 2>&1 &
+sleep 2; timeout 12 python3 uart/camssh.py "sync; reboot -f"                                    # камера на 192.168.30.53
+tail -f uart/stage-nor-rootfs-write-*.log      # ждём "Total of 7733248 byte(s) were the same" → reset → загрузка из NOR → beta-cam
+```
+Потом: `pkill -f "^python3 uart/stage.py"; systemctl --user start uart-logger`; я проверяю ssh на 192.168.30.53, `wpa_cli status`, RTSP/ONVIF.

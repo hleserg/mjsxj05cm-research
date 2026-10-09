@@ -1,11 +1,11 @@
 #!/bin/bash
 # Проверка событий движения majestic через ONVIF PullPoint (только curl, без python-onvif).
 #   tools/onvif-pull.sh [секунд опроса, дефолт 60]
-# Пароль root берётся из p4/secret/root-password.txt и маскируется в выводе. Камера: 192.168.1.53.
+# Пароль root берётся из p4/secret/root-password.txt и маскируется в выводе. Камера: CAM_HOST (192.168.30.53, beta-cam).
 set -u
 cd "$(dirname "$0")/.."
 PW=$(cat firmware/openipc-ipc017-20260926/p4/secret/root-password.txt)
-CAM=${CAM:-192.168.1.53}; SECS=${1:-60}
+CAM=${CAM:-${CAM_HOST:-192.168.30.53}}; SECS=${1:-60}
 EV=http://$CAM/onvif/event_service
 soap() { curl -s -m 10 -u "root:$PW" -H 'Content-Type: application/soap+xml' -d "$1" "$2" | sed "s/$PW/***/g"; }
 env() { echo "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\" xmlns:a=\"http://www.w3.org/2005/08/addressing\"><s:Header>${2:-}</s:Header><s:Body>$1</s:Body></s:Envelope>"; }

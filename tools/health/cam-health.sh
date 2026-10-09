@@ -6,7 +6,7 @@
 # Установка и снятие: tools/health/README.md.
 set -u
 REPO=/home/hleserg/mjsxj05cm-research
-CAM=${CAM_HOST:-192.168.1.53}
+export CAM_HOST=${CAM_HOST:-192.168.30.53}; CAM=$CAM_HOST   # 09.10: beta-cam, Cam-сегмент (camssh.py читает CAM_HOST)
 ST=${CAM_HEALTH_STATE:-$HOME/.local/state/cam-health}; mkdir -p "$ST"
 PY=/home/hleserg/.espressif/python_env/idf5.5_py3.13_env/bin/python3   # единственный python3 с paramiko (для uart/camssh.py)
 [ -r "$HOME/.config/cam-health/env" ] && . "$HOME/.config/cam-health/env"

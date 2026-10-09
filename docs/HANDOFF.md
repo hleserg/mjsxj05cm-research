@@ -144,3 +144,11 @@ STATUS.md, FULL-CONTROL-ACCEPTANCE.md.
 ### 09.10 21:43 — надзор восстановлен
 
 Владелец 21:50: `pkill stage.py; systemctl --user start uart-logger; rm pause`. Проверено 21:43: stage.py нет, uart-logger active, паузы нет, камера отвечает. Крон-проверка 555de45f снята. Ждём ответ владельца по Wi-Fi (сеть по роли, PSK на карте?) — отдельная задача.
+
+### 09.10 22:37 — Wi-Fi beta-cam: живой тест пройден, rootfs v2 готов, ждём «да» (STOP-2)
+
+1. 22:28 RAM-тест: `wpa_cli add_network` (psk 64-hex, priority 10) → COMPLETED, freq 2442, 192.168.30.53/24 via .30.1 (резерв DHCP владельца, name Beta360Cam), ssh/80/554 с Pi открыты. Откат-таймер (300 с) отменён 22:32 — камера остаётся на beta-cam до reboot (RAM-only).
+2. Факт сегмента: Cam protected — камера НЕ достаёт до Pi (.1.139) и bigpc (.1.10); Home→Cam работает (ssh, RTSP). Поэтому `tools/p1-put.sh` v2 = push по ssh (`camssh.py --put`, stdin, 7.7 МБ за 10 с), http.server убран.
+3. Собран rootfs v2: `p4/secret/wpa.conf` = старая сеть + beta-cam (v1 сохранён как `wpa.conf.v1`); `rootfs-nor.pad.bin` crc **2ac386df**, залит на p1 (md5 сошёлся). CRC.txt: строка v1 переименована в `rootfs-nor-v1.pad.bin` (1b23dd8c, гейт «в NOR сейчас»). stage.py: `nor-rootfs-check`/`nor-rootfs-write` (только 0x250000), selftest ok, `nor-stock-restore` принимает v1 и v2.
+4. Инструменты на .30.53: `uart/camssh.py` (CAM_HOST, умолчание .30.53), `cam-health.sh` (export CAM_HOST), `onvif-pull.sh`. Пауза cam-health снята 22:37.
+5. **Дальше:** «да» владельца → STOP-2 команды (`uboot/STOP-nor.md`, через `!`) → reboot → проверка (ssh .30.53, wpa_cli status, RTSP/ONVIF) → надзор (pkill stage.py, uart-logger start) → владелец: Frigate rtsp .1.53→.30.53 на bigpc, ONVIFer по IP → STATUS/README (.53 → .30.53) → budget end. Отдельно: карта p3 (sd-режим) со старым wpa.conf.
