@@ -158,3 +158,5 @@ STATUS.md, FULL-CONTROL-ACCEPTANCE.md.
 1. Владелец запустил `nor-rootfs-write` 22:53:58 + reboot. Лог `uart/stage-nor-rootfs-write-20261009-225358.log`: гейт NOR `==> 1b23dd8c` (v1), файл p1 `==> 2ac386df`, Erased/Written OK @0x250000, readback `2ac386df`, «Total of 7733248 byte(s) were the same», reset. ABORT нет, другие области не трогались.
 2. После reset: Linux из `root=/dev/mtdblock2`, `mjsxj05cm-nor`, /wpa.conf = 2 сети (md5 = репо a1040f33), wpa_state COMPLETED на beta-cam, 192.168.30.53, majestic/dropbear ок, 554/80 открыты, ONVIF 401. cam-health 23:00: «ПЕРЕЗАГРУЗИЛАСЬ» — ожидаемо, дальше ok.
 3. Владельцу: `pkill -f "^python3 uart/stage.py"; systemctl --user start uart-logger` (stage.py ещё держит ttyAMA2); Frigate на bigpc rtsp .1.53 → .30.53; ONVIFer по IP .30.53. Отдельно потом: карта p3 (sd-режим) — старый wpa.conf, пересобрать p3 при случае.
+
+Надзор восстановлен владельцем 23:15: stage.py нет, uart-logger active, камера .30.53 отвечает. Будильник a7722289 снят. Осталось владельцу: Frigate rtsp → .30.53.
