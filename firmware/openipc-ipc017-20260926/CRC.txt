@@ -12,3 +12,4 @@ env-v4.bin (0x4F000, в NOR с 29.09 15:51 = uboot/env-new-v4.bin) | 4096 (0x100
 env-v5.bin (0x4F000, OpenIPC из NOR = uboot/env-new-v5.bin) | 4096 (0x1000) | 818e914a | b4fbbb3949e9a545293dc526520786ec4e5a7305698d0ac769ba55cb080c3395
 rootfs-nor.squashfs | 4923392 (0x4B2000) | decc3ecb | 1ddd226b00a59d10c2c81ebf90979b4e4b7b35d8aae1beafcf96d3d8fa27ffad
 rootfs-nor.pad.bin (0x250000, 0xFF до 0x760000) | 7733248 (0x760000) | 2ac386df | 949033a0ef16e78077295a4fe874586e04cc67e7bc1574aa71542ba0c9f96ab8
+card p3 (10.10 00:03) = rootfs-nor.pad.bin v2, md5 430bf02c4250088ef600aa34b4a17e74 (head 7733248 of /dev/mmcblk0p3); до этого = p3 из sd-stage8.img (md5 9a0b9f2431b8985df9345425c48d4707)

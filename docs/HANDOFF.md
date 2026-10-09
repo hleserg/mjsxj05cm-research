@@ -166,3 +166,7 @@ STATUS.md, FULL-CONTROL-ACCEPTANCE.md.
 Владелец выполнил sed+restart через `ssh bigpc "wsl -e bash -c ..."` (первая попытка с `nc` упала: `ssh bigpc` попадает в Windows cmd, `nc` нет, цепочка `&&` оборвалась — ничего не изменилось). Проверено мной через API Frigate в WSL: контейнер healthy, camera_fps 5.1, ошибок ffmpeg нет. Задача Wi-Fi закрыта полностью. Осталось только необязательное: карта p3 (sd-режим) со старым wpa.conf.
 
 Заметка на будущее для команд на bigpc: пайпы/кавычки через cmd ломаются, рабочий приём — `B=$(printf %s '<скрипт>' | base64 -w0); ssh bigpc "wsl -e bash -c \"echo $B | base64 -d | bash\""`.
+
+## 10.10 00:03 — карта p3 переписана образом v2
+
+«Давай доделывать все» (23:4x) = согласие на p3. Проверено до записи: p3 на карте = область p3 из sd-stage8.img (md5 9a0b9f24…, резерв на Pi). Владелец через `!` (классификатор запретил мне dd в раздел и даже boot-mode.sh): гейты (NOR-режим, p3 не смонтирован, размер 32768 секторов, md5 источника) → `dd if=/tmp/p1/rootfs-nor.pad.bin of=/dev/mmcblk0p3 bs=1M conv=fsync` → drop_caches → md5 head 7733248 = 430bf02c…, head 4923392 = 51bbcfb7… (= rootfs-nor.squashfs v2). p2 (v1 с репетиции 2a-p2) не трогали — не в пути загрузки. Дальше: тест sd-режима (boot-mode.sh sd + reboot, владелец) → `mjsxj05cm-sd`, root=/dev/mmcblk0p3, .30.53 → boot-mode.sh nor + reboot.
