@@ -160,3 +160,9 @@ STATUS.md, FULL-CONTROL-ACCEPTANCE.md.
 3. Владельцу: `pkill -f "^python3 uart/stage.py"; systemctl --user start uart-logger` (stage.py ещё держит ttyAMA2); Frigate на bigpc rtsp .1.53 → .30.53; ONVIFer по IP .30.53. Отдельно потом: карта p3 (sd-режим) — старый wpa.conf, пересобрать p3 при случае.
 
 Надзор восстановлен владельцем 23:15: stage.py нет, uart-logger active, камера .30.53 отвечает. Будильник a7722289 снят. Осталось владельцу: Frigate rtsp → .30.53.
+
+## 09.10 23:31 — Frigate переключён на 192.168.30.53
+
+Владелец выполнил sed+restart через `ssh bigpc "wsl -e bash -c ..."` (первая попытка с `nc` упала: `ssh bigpc` попадает в Windows cmd, `nc` нет, цепочка `&&` оборвалась — ничего не изменилось). Проверено мной через API Frigate в WSL: контейнер healthy, camera_fps 5.1, ошибок ffmpeg нет. Задача Wi-Fi закрыта полностью. Осталось только необязательное: карта p3 (sd-режим) со старым wpa.conf.
+
+Заметка на будущее для команд на bigpc: пайпы/кавычки через cmd ломаются, рабочий приём — `B=$(printf %s '<скрипт>' | base64 -w0); ssh bigpc "wsl -e bash -c \"echo $B | base64 -d | bash\""`.
