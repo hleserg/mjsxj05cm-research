@@ -10,6 +10,7 @@ CAM=${CAM_HOST:-192.168.1.53}
 ST=${CAM_HEALTH_STATE:-$HOME/.local/state/cam-health}; mkdir -p "$ST"
 PY=/home/hleserg/.espressif/python_env/idf5.5_py3.13_env/bin/python3   # единственный python3 с paramiko (для uart/camssh.py)
 [ -r "$HOME/.config/cam-health/env" ] && . "$HOME/.config/cam-health/env"
+[ -e "$ST/pause" ] && exit 0   # 09.10: touch $ST/pause — тишина на время прошивки/репетиций, rm — снова следим
 exec 9>"$ST/lock"; flock -n 9 || exit 0
 now=$(date '+%d.%m %H:%M')
 prev_up=0; prev_state=unknown; prev_warn=
