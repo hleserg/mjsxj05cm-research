@@ -152,3 +152,9 @@ STATUS.md, FULL-CONTROL-ACCEPTANCE.md.
 3. Собран rootfs v2: `p4/secret/wpa.conf` = старая сеть + beta-cam (v1 сохранён как `wpa.conf.v1`); `rootfs-nor.pad.bin` crc **2ac386df**, залит на p1 (md5 сошёлся). CRC.txt: строка v1 переименована в `rootfs-nor-v1.pad.bin` (1b23dd8c, гейт «в NOR сейчас»). stage.py: `nor-rootfs-check`/`nor-rootfs-write` (только 0x250000), selftest ok, `nor-stock-restore` принимает v1 и v2.
 4. Инструменты на .30.53: `uart/camssh.py` (CAM_HOST, умолчание .30.53), `cam-health.sh` (export CAM_HOST), `onvif-pull.sh`. Пауза cam-health снята 22:37.
 5. **Дальше:** «да» владельца → STOP-2 команды (`uboot/STOP-nor.md`, через `!`) → reboot → проверка (ssh .30.53, wpa_cli status, RTSP/ONVIF) → надзор (pkill stage.py, uart-logger start) → владелец: Frigate rtsp .1.53→.30.53 на bigpc, ONVIFer по IP → STATUS/README (.53 → .30.53) → budget end. Отдельно: карта p3 (sd-режим) со старым wpa.conf.
+
+### 09.10 23:06 — STOP-2 ВЫПОЛНЕН: rootfs v2 в NOR, камера на beta-cam
+
+1. Владелец запустил `nor-rootfs-write` 22:53:58 + reboot. Лог `uart/stage-nor-rootfs-write-20261009-225358.log`: гейт NOR `==> 1b23dd8c` (v1), файл p1 `==> 2ac386df`, Erased/Written OK @0x250000, readback `2ac386df`, «Total of 7733248 byte(s) were the same», reset. ABORT нет, другие области не трогались.
+2. После reset: Linux из `root=/dev/mtdblock2`, `mjsxj05cm-nor`, /wpa.conf = 2 сети (md5 = репо a1040f33), wpa_state COMPLETED на beta-cam, 192.168.30.53, majestic/dropbear ок, 554/80 открыты, ONVIF 401. cam-health 23:00: «ПЕРЕЗАГРУЗИЛАСЬ» — ожидаемо, дальше ok.
+3. Владельцу: `pkill -f "^python3 uart/stage.py"; systemctl --user start uart-logger` (stage.py ещё держит ttyAMA2); Frigate на bigpc rtsp .1.53 → .30.53; ONVIFer по IP .30.53. Отдельно потом: карта p3 (sd-режим) — старый wpa.conf, пересобрать p3 при случае.
