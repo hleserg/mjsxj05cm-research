@@ -182,3 +182,5 @@ STATUS.md, FULL-CONTROL-ACCEPTANCE.md.
 ## 10.10 01:38 — пароль ONVIF сменён
 
 Владелец: «а пароль onvif можем поменять?». Пароль = первая строка `onvif-password.txt` на p1 карты (cam-up.sh → majestic.yaml onvif.password, логин admin; копия в /opt/p1 внутри NOR — только запасная без карты, там остался старый). Новый 16-значный в `p4/secret/onvif-password.txt` (старый — `.old`), на p1 положен владельцем через `!` (p1-put, md5 9dffc4d6…), reboot 01:37. Проверено: majestic.yaml содержит новый, WSSE PasswordDigest admin+новый → GetDeviceInformation 200; старый отвергнут. Владельцу: вбить новый пароль в HA (ONVIF, host .30.53) и Onvifer. Чтобы обновить запасную копию в NOR — при следующей пересборке rootfs (STOP), не срочно.
+
+02:00: владелец вбил новый пароль ONVIF в HA — «работает». Соединения к камере с .1.x видны как 192.168.30.1 (роутер между сегментами). Открытых пунктов по Wi-Fi/ONVIF нет.
