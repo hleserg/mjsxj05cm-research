@@ -140,3 +140,7 @@ STATUS.md, FULL-CONTROL-ACCEPTANCE.md.
 2. Камера оставлена в NOR-режиме (образ новее p3: init4 v8), карта как данные. Обратно: `tools/boot-mode.sh sd` + reboot. Физический тест без карты — за владельцем, когда удобно.
 3. Осталось владельцу: вернуть надзор — `pkill -f "^python3 uart/stage.py"; systemctl --user start uart-logger; rm ~/.local/state/cam-health/pause`.
 4. Новая просьба владельца 21:3x: «перевести камеру на другой wifi». Факт: SSID/PSK зашиты в `/wpa.conf` внутри squashfs (и p3, и NOR) — смена через пересборку rootfs = ещё одна запись NOR (STOP). Без флеша: autorun.sh/файл на карте → `wpa_cli add_network/set_network/enable_network` при старте. Решение за владельцем (какая сеть, PSK на карте ок?).
+
+### 09.10 21:43 — надзор восстановлен
+
+Владелец 21:50: `pkill stage.py; systemctl --user start uart-logger; rm pause`. Проверено 21:43: stage.py нет, uart-logger active, паузы нет, камера отвечает. Крон-проверка 555de45f снята. Ждём ответ владельца по Wi-Fi (сеть по роли, PSK на карте?) — отдельная задача.
