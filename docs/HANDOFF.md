@@ -120,3 +120,10 @@ STATUS.md, FULL-CONTROL-ACCEPTANCE.md.
 3. BIG 600 → 1800 с (erase 0x760000 по 4К-секторам до ~566 с по даташиту); по таймауту ABORT, U-Boot доделывает сам.
 4. `EXTRA_OLD_CRC=…` в stage.py — гейт под фактический crc полузаписанной области; в STOP-nor.md: карта остаётся вставленной, sdboot = откат на полпути.
 Дальше: показать владельцу план репетиций (nor-openipc-check → 2a-p2 с dd на p2 с его OK) → STOP → «да». NOR не писался.
+
+### 09.10 16:46 — репетиции 1 и 2 пройдены, NOR не писался
+
+1. **Репетиция 1 (nor-openipc-check, 16:38–16:40):** все гейты прошли — NOR = сток (env crc 25f375ed), файлы на p1 = CRC.txt, fatload 7.4 MiB за 1017 мс, ABORT нет.
+2. **Репетиция 2 (2a-p2, 16:43–16:46):** p2 карты перезаписан rootfs-nor.pad.bin (md5 ee8ab35f… сверен), перевзвод через FIFO (`#stage 2a-p2` + `reset`), ядро с p1, `root=/dev/mmcblk0p2` → VFS смонтирован (179:2), INIT4_START → udhcpc .53 → dropbear → SSH_READY_ip → postboot ок. По ssh: hostname mjsxj05cm-sd (ожидаемо, root≠mtdblock2), /init4.sh md5 = репо, majestic и dropbear живы, /tmp/p1 ro + /tmp/p4 rw, RTSP/ONVIF отвечают 401 (авторизация, сервисы живы). **Содержимое образа NOR рабочее.**
+3. **Сейчас:** камера работает с p2 (образ NOR), stage.py (PID 1853270) всё ещё держит ttyAMA2, uart-logger остановлен, cam-health на паузе (`~/.local/state/cam-health/pause`) — снять ПОСЛЕ записи NOR.
+4. **Дальше:** владелец убивает stage.py → советник → STOP-nor.md владельцу → «да» → `NOR_WRITE=yes … nor-openipc-write` → reboot с согласия → 3× «were the same» → заполнить «ЗАПИСАНО», приёмка boot-mode.sh nor/sd, тест без карты (физически владелец) → снять паузу cam-health → STATUS/DECISIONS → task-budget end.
