@@ -67,13 +67,21 @@ U-Boot свою команду доделывает.
 
 ## Команды (после «да»)
 ```bash
-cd ~/mjsxj05cm-research && systemctl --user stop uart-logger
+cd ~/mjsxj05cm-research && pkill -f "^python3 uart/stage.py"; systemctl --user stop uart-logger   # один читатель ttyAMA2
 NOR_WRITE=yes STAGE_WAIT=86400 nohup python3 uart/stage.py nor-openipc-write > /dev/null 2>&1 &
 # я, с согласия: timeout 12 python3 uart/camssh.py "sync; reboot -f"
 tail -f uart/stage-nor-openipc-write-*.log       # ждём 3× "were the same" → reset → автозагрузка с карты (uImage на p1 есть)
 ```
 Переменные-гейты по умолчанию берутся из `CRC.txt` (`ENV_OLD_CRC=25f375ed`, `ENV_NEW_CRC=818e914a`, `ROOTFS_NOR_CRC=1b23dd8c`);
 `EXTRA_OLD_CRC=…` — только для повтора после обрыва (см. выше).
+
+## Проверено перед «да» (09.10)
+- Репетиция 1 `nor-openipc-check` (16:40): гейты NOR=сток, файлы p1=CRC.txt, fatload 7.4 MiB — ok. Репетиция 2 `2a-p2` (16:46): образ NOR загружен с p2 карты — ssh, majestic, dropbear, RTSP/ONVIF живы, init4.sh = репо.
+- Цепочка `sdboot падает → norboot` реально отрабатывала 29.09 (v4: «Wrong Image Format» → `sf read 0x50000 0x200000` → kernel cmdline = norargs). v5 меняет только текст `norargs`.
+- `kernel.pad.bin` = `uImage.ssc325` + паддинг (`cmp -n 1977576`). `stage.py selftest` проверяет смещения ровно `0x250000, 0x50000, 0x4F000`.
+- **Без карты:** init4.sh v8 при неудаче `mount p1` печатает «карты нет» и берёт autorun.sh из `/opt/p1` внутри squashfs — ssh + majestic + autorun есть, данных p4 нет.
+- **Время:** реально 5–15 мин; потолок ≈ 30 мин (три записи с таймаутом 1800 с каждая). Сигнал «готово» — три строки «were the same» в логе, затем `reset` и загрузка с карты.
+- cam-health на паузе до конца записи: пока «да» не сказано, камера без мониторинга в Telegram.
 
 ## Откат
 `NOR_WRITE=yes STAGE_WAIT=86400 nohup python3 uart/stage.py nor-stock-restore > /dev/null 2>&1 &` — rootfs → kernel → env стоковые из p1.
