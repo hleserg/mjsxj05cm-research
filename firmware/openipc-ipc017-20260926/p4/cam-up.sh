@@ -17,6 +17,7 @@ lsmod | grep -q "^sensor_gc2053_mipi " || insmod $M/sensor_gc2053_mipi.ko chmap=
 # отвергает WSSE PasswordDigest (Onvifer, ODM) — в /etc/shadow только хеш, дайджест считать не из чего.
 OPW=$(cat /tmp/p1/onvif-password.txt /opt/p1/onvif-password.txt 2>/dev/null | sed -n 1p)   # v8: без карты — копия в rootfs NOR
 # 29.09 16:55: p4 карты (FAT32 DATA, docs/p4-plan.md) — локальная запись majestic «вкруг» в /tmp/p4; нет p4 → records остаются выкл.
+# 10.10 02:30: rtsp.audioCodec: aac — HA (stream/HLS) не пропускает opus → карточка без звука; AAC проверен ffprobe (stream=0&audio=aac). Кодер (audio.codec opus, 8 кГц) не трогаем.
 # 30.09: лог ядра/системы на p4 (переживает зависание; читать после пауэр-цикла), ротация 2×1 МБ.
 mkdir -p /tmp/p4; mount -t vfat -o rw,noatime /dev/mmcblk0p4 /tmp/p4 && REC='/^records:/,/^[a-z]/ { s/enabled: false/enabled: true/; s|path: .*|path: /tmp/p4/%F|; s/maxUsage: 95/maxUsage: 90/ }' || REC=''
 mountpoint -q /tmp/p4 && { syslogd -O /tmp/p4/syslog.log -s 1024 -b 2; klogd; }
@@ -24,6 +25,7 @@ sed -e '/^video1:/,/^[a-z]/ s/enabled: false/enabled: true/' \
     -e "/^onvif:/,/^[a-z]/ { s/^  # username: root/  username: admin/; s|^  # password: \"\"|  password: ${OPW:-changeme}| }" \
     -e '/^motionDetect:/,/^[a-z]/ s/enabled: false/enabled: true/' \
     -e "$REC" \
+    -e 's/^rtsp:/rtsp:\n  audioCodec: aac/' \
     -e '/^audio:/,/^[a-z]/ { s/enabled: false/enabled: true/; s/outputEnabled: false/outputEnabled: true/; s/  volume: 30/  volume: 100/; s/outputVolume: 30/outputVolume: 60/ }' /etc/majestic.yaml > /tmp/m.yaml
 grep -A2 '^watchdog:' /tmp/m.yaml
 mountpoint -q /etc/majestic.yaml || mount --bind /tmp/m.yaml /etc/majestic.yaml
