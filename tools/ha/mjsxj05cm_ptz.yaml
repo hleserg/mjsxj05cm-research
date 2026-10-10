@@ -1,0 +1,51 @@
+# =============================================================================
+#  Камера MJSXJ05CM (OpenIPC, 192.168.30.53): кнопки PTZ
+# =============================================================================
+#  На камере busybox httpd :8080 + CGI (репо mjsxj05cm-research, p4/ptz-cgi.sh):
+#  ?left=N ?right=N ?up=N ?down=N — полушаги (пан ≈11.4/°, тилт ≈7.3/°), ?home — в центр
+#  как у стока (≈20 с). Ответ `ok` сразу, движение фоном; `busy` — мотор ещё едет.
+#  Без auth: сегмент Cam доступен только из Home/WG. Перезагрузка HA не нужна:
+#  Developer tools → YAML → «REST commands» и «Template entities».
+# =============================================================================
+rest_command:
+  mjsxj05cm_ptz:
+    url: "http://192.168.30.53:8080/cgi-bin/ptz?{{ cmd }}"
+    timeout: 5
+
+template:
+  - button:
+      - name: "Камера: влево"
+        unique_id: mjsxj05cm_ptz_left
+        default_entity_id: button.mjsxj05cm_ptz_left
+        icon: mdi:arrow-left-bold
+        press:
+          - action: rest_command.mjsxj05cm_ptz
+            data: {cmd: "left=300"}
+      - name: "Камера: вправо"
+        unique_id: mjsxj05cm_ptz_right
+        default_entity_id: button.mjsxj05cm_ptz_right
+        icon: mdi:arrow-right-bold
+        press:
+          - action: rest_command.mjsxj05cm_ptz
+            data: {cmd: "right=300"}
+      - name: "Камера: вверх"
+        unique_id: mjsxj05cm_ptz_up
+        default_entity_id: button.mjsxj05cm_ptz_up
+        icon: mdi:arrow-up-bold
+        press:
+          - action: rest_command.mjsxj05cm_ptz
+            data: {cmd: "up=100"}
+      - name: "Камера: вниз"
+        unique_id: mjsxj05cm_ptz_down
+        default_entity_id: button.mjsxj05cm_ptz_down
+        icon: mdi:arrow-down-bold
+        press:
+          - action: rest_command.mjsxj05cm_ptz
+            data: {cmd: "down=100"}
+      - name: "Камера: в центр"
+        unique_id: mjsxj05cm_ptz_home
+        default_entity_id: button.mjsxj05cm_ptz_home
+        icon: mdi:image-filter-center-focus
+        press:
+          - action: rest_command.mjsxj05cm_ptz
+            data: {cmd: "home"}

@@ -277,3 +277,15 @@ uart-logger на Pi можно остановить (нечего слушать
 - В RAM камеры уже новые `/tmp/ptz` (md5 74977316) и `/tmp/ptz.sh` (3da46b6e). Залито на p1 владельцем (md5 совпали). Перезагрузка для проверки autorun — в удобный момент.
 - Дальше: кнопки PTZ в HA (httpd+cgi на камере → ptz.sh; rest_command в HA), маска движения Frigate поверх OSD.
 - 08:17: `ptz.sh home` (h −4300 → +2050, v +800 → −350) = центрирование как у стока, 19.7 с бинарником; в autorun после init, только если есть /tmp/ptz. Прогнано на камере. Залито на p1 (md5 8c2007a9 / e1f48901).
+
+## 10.10 08:27 — кнопки PTZ в HA (камера готова, HA ждёт reload)
+
+- Камера (RAM): `httpd -p 8080 -h /tmp/www`, CGI `/tmp/www/cgi-bin/ptz` = `p4/ptz-cgi.sh` (md5 c636443a).
+  Тесты: `left=abc`/`up=99999`/`x=1` → bad, `home` → ok, повтор сразу → busy, замок снимается.
+  Доступ с doctor (:8080) проверен. Направления: `h +` = влево (кадр уезжает вправо), `v +` = вверх.
+- autorun.sh в репо получил строки httpd; на p1 ещё старая версия (e1f48901) — **залить ptz-cgi.sh + autorun.sh**
+  (`tools/p1-put.sh`), перезагрузка не нужна.
+- HA: `tools/ha/mjsxj05cm_ptz.yaml` скопирован на doctor в `packages/`, `check_config` чистый.
+  Владельцу: Developer tools → YAML → «REST commands» и «Template entities» (или рестарт HA),
+  потом `./scripts/normalize-entity-ids.sh` не нужен — entity_id заданы через `default_entity_id`.
+- Дальше: владелец жмёт «влево» и говорит, туда ли уехала картинка. Потом по желанию: basic auth, переключатель ИК-лампы.
