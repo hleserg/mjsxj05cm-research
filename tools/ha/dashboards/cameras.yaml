@@ -1,0 +1,79 @@
+# =============================================================================
+#  Камеры: живая картинка + крестовина PTZ для MJSXJ05CM (кнопки из packages/mjsxj05cm_ptz.yaml)
+# =============================================================================
+#  Подключается в configuration.yaml → lovelace.dashboards (iot-cameras). Новый дашборд HA видит после рестарта.
+# =============================================================================
+title: Камеры
+
+views:
+  - title: Камеры
+    path: cams
+    icon: mdi:cctv
+    cards:
+      - type: picture-entity
+        entity: camera.mjsxj05cm
+        name: MJSXJ05CM
+        camera_view: live
+        show_state: false
+
+      - type: vertical-stack
+        cards:
+          - type: horizontal-stack
+            cards:
+              - &ptz
+                type: button
+                entity: button.mjsxj05cm_ptz_up
+                name: Вверх
+                icon: mdi:arrow-up-bold
+                show_state: false
+                tap_action:
+                  action: perform-action
+                  perform_action: button.press
+                  target: {entity_id: button.mjsxj05cm_ptz_up}
+          - type: horizontal-stack
+            cards:
+              - <<: *ptz
+                entity: button.mjsxj05cm_ptz_left
+                name: Влево
+                icon: mdi:arrow-left-bold
+                tap_action:
+                  action: perform-action
+                  perform_action: button.press
+                  target: {entity_id: button.mjsxj05cm_ptz_left}
+              - <<: *ptz
+                entity: button.mjsxj05cm_ptz_home
+                name: Центр
+                icon: mdi:image-filter-center-focus
+                tap_action:
+                  action: perform-action
+                  perform_action: button.press
+                  target: {entity_id: button.mjsxj05cm_ptz_home}
+              - <<: *ptz
+                entity: button.mjsxj05cm_ptz_right
+                name: Вправо
+                icon: mdi:arrow-right-bold
+                tap_action:
+                  action: perform-action
+                  perform_action: button.press
+                  target: {entity_id: button.mjsxj05cm_ptz_right}
+          - type: horizontal-stack
+            cards:
+              - <<: *ptz
+                entity: button.mjsxj05cm_ptz_down
+                name: Вниз
+                icon: mdi:arrow-down-bold
+                tap_action:
+                  action: perform-action
+                  perform_action: button.press
+                  target: {entity_id: button.mjsxj05cm_ptz_down}
+
+      - type: picture-entity
+        entity: camera.ifeel
+        name: ifeel
+        camera_view: live
+        show_state: false
+
+      - type: picture-entity
+        entity: camera.smart_feeder
+        name: Кормушка
+        show_state: false
