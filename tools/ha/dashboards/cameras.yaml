@@ -66,28 +66,16 @@ views:
                   action: perform-action
                   perform_action: button.press
                   target: {entity_id: button.mjsxj05cm_ptz_down}
-          - type: horizontal-stack
-            cards:
-              - <<: *ptz
-                entity: button.mjsxj05cm_night_off
-                name: День
-                icon: mdi:white-balance-sunny
-                tap_action:
-                  action: perform-action
-                  perform_action: button.press
-                  target: {entity_id: button.mjsxj05cm_night_off}
-              - type: entity
-                entity: sensor.mjsxj05cm_night
+          - type: entities
+            entities:
+              - entity: input_select.mjsxj05cm_night_mode
                 name: Ночной режим
-                icon: mdi:theme-light-dark
-              - <<: *ptz
-                entity: button.mjsxj05cm_night_on
-                name: Ночь
-                icon: mdi:weather-night
-                tap_action:
-                  action: perform-action
-                  perform_action: button.press
-                  target: {entity_id: button.mjsxj05cm_night_on}
+              - entity: sensor.mjsxj05cm_night
+                name: Сейчас
+              - entity: input_number.mjsxj05cm_night_gain
+                name: Ночь при усилении, x (1 = авто)
+              - entity: input_number.mjsxj05cm_day_gain
+                name: День при усилении, x
 
       - type: picture-entity
         entity: camera.ifeel

@@ -6,9 +6,12 @@
 #  как у стока (≈20 с). Ответ `ok` сразу, движение фоном; `busy` — мотор ещё едет.
 #  Без auth: сегмент Cam доступен только из Home/WG. Перезагрузка HA не нужна:
 #  Developer tools → YAML → «REST commands» и «Template entities».
-#  10.10: ночной режим — majestic сам переключает день/ночь по экспозиции (ИК-фильтр + ИК-лампа);
-#  кнопки «ночь»/«день» дёргают /night/on|off на :80 (root, пароль в secrets.yaml: mjsxj05cm_root),
-#  sensor.mjsxj05cm_night опрашивает /night/ раз в минуту (0 = день, 1 = ночь). Сенсор: YAML → «REST entities».
+#  11.10: ночной режим. input_select «авто/ночь/день» + пороги усиления; автоматизация сама приводит камеру
+#  к выбранному (и после её перезагрузки: cam-up.sh поднимает «авто» без порогов). Ручной режим =
+#  /api/v1/set?nightMode.lightMonitor=false + /night/on|off (проверено вживую, конвейер не пересобирается).
+#  Порог ночи 1x = решает экспозиция (как по умолчанию); N>1 = ночь при усилении ≥N, день при ≤ порога дня.
+#  Root-пароль: secrets.yaml → mjsxj05cm_root. Перечитать: YAML → «REST commands», «REST entities»,
+#  «Input selects», «Input numbers», «Automations»; кнопки ночь/день убраны (их заменил селектор).
 # =============================================================================
 rest_command:
   mjsxj05cm_ptz:
@@ -19,6 +22,65 @@ rest_command:
     username: root
     password: !secret mjsxj05cm_root
     timeout: 5
+  mjsxj05cm_set:
+    url: "http://192.168.30.53/api/v1/set?{{ q }}"
+    username: root
+    password: !secret mjsxj05cm_root
+    timeout: 10
+
+input_select:
+  mjsxj05cm_night_mode:
+    name: "Камера: ночной режим"
+    options: [авто, ночь, день]
+    icon: mdi:theme-light-dark
+
+input_number:
+  mjsxj05cm_night_gain:
+    name: "Камера: ночь при усилении, x (1 = по экспозиции)"
+    min: 1
+    max: 64
+    step: 1
+    icon: mdi:weather-night
+  mjsxj05cm_day_gain:
+    name: "Камера: день при усилении, x"
+    min: 2
+    max: 32
+    step: 1
+    icon: mdi:white-balance-sunny
+
+automation:
+  - id: mjsxj05cm_night_apply
+    alias: "Камера: применить ночной режим"
+    mode: queued
+    max: 3
+    triggers:
+      # камера не совпадает с выбранным (смена селектора, ребут камеры, рестарт HA)
+      - trigger: template
+        value_template: >-
+          {%- set m = states('input_select.mjsxj05cm_night_mode') %}
+          {%- set src = states('sensor.mjsxj05cm_night_source') %}
+          {%- set thr = states('sensor.mjsxj05cm_day_threshold') %}
+          {%- set g = states('input_number.mjsxj05cm_night_gain') | int(1) %}
+          {%- if src in ['unknown', 'unavailable'] %}false
+          {%- elif m == 'авто' %}{{ src != 'авто' or (g > 1) != (thr != 'нет') }}
+          {%- else %}{{ src != 'вручную' or states('sensor.mjsxj05cm_night') != m }}{% endif %}
+      - trigger: state
+        entity_id: [input_number.mjsxj05cm_night_gain, input_number.mjsxj05cm_day_gain]
+    actions:
+      - variables:
+          m: "{{ states('input_select.mjsxj05cm_night_mode') }}"
+      - action: rest_command.mjsxj05cm_set
+        data:
+          q: >-
+            nightMode.lightMonitor={{ 'true' if m == 'авто' else 'false' }}&nightMode.autoNightGain={{
+            states('input_number.mjsxj05cm_night_gain') | int(1) }}&nightMode.autoDayGain={{
+            states('input_number.mjsxj05cm_day_gain') | int(4) }}
+      - if: "{{ m != 'авто' }}"
+        then:
+          - action: rest_command.mjsxj05cm_night
+            data: {cmd: "{{ 'on' if m == 'ночь' else 'off' }}"}
+      - action: homeassistant.update_entity
+        target: {entity_id: sensor.mjsxj05cm_night}
 
 template:
   - button:
@@ -57,33 +119,29 @@ template:
         press:
           - action: rest_command.mjsxj05cm_ptz
             data: {cmd: "home"}
-      - name: "Камера: ночь (ИК)"
-        unique_id: mjsxj05cm_night_on
-        default_entity_id: button.mjsxj05cm_night_on
-        icon: mdi:weather-night
-        press:
-          - action: rest_command.mjsxj05cm_night
-            data: {cmd: "on"}
-          - action: homeassistant.update_entity
-            target: {entity_id: sensor.mjsxj05cm_night}
-      - name: "Камера: день"
-        unique_id: mjsxj05cm_night_off
-        default_entity_id: button.mjsxj05cm_night_off
-        icon: mdi:white-balance-sunny
-        press:
-          - action: rest_command.mjsxj05cm_night
-            data: {cmd: "off"}
-          - action: homeassistant.update_entity
-            target: {entity_id: sensor.mjsxj05cm_night}
 
-sensor:
-  - platform: rest
-    name: mjsxj05cm_night
-    unique_id: mjsxj05cm_night
-    resource: http://192.168.30.53/night/
+rest:
+  - resource: http://192.168.30.53/metrics
     username: root
     password: !secret mjsxj05cm_root
     authentication: basic
     scan_interval: 60
-    timeout: 5
-    value_template: "{{ 'ночь' if value | trim == '1' else 'день' }}"
+    timeout: 10
+    sensor:
+      - name: mjsxj05cm_night
+        unique_id: mjsxj05cm_night
+        icon: mdi:theme-light-dark
+        value_template: >-
+          {{ 'ночь' if value | regex_findall('(?m)^night_enabled ([0-9]+)') | first | default('0') == '1' else 'день' }}
+      - name: mjsxj05cm_night_source
+        unique_id: mjsxj05cm_night_source
+        icon: mdi:auto-mode
+        value_template: >-
+          {%- set v = value | regex_findall('(?m)^night_mode_source ([0-9]+)') | first | default('') %}
+          {{ {'0': 'вручную', '4': 'авто'}.get(v, v or 'unknown') }}
+      - name: mjsxj05cm_day_threshold
+        unique_id: mjsxj05cm_day_threshold
+        icon: mdi:white-balance-sunny
+        value_template: >-
+          {%- set t = value | regex_findall('(?m)^night_day_threshold_milli ([0-9]+)') %}
+          {{ (t[0] | int / 1000) if t else 'нет' }}
