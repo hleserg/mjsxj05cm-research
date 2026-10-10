@@ -305,6 +305,7 @@ uart-logger на Pi можно остановить (нечего слушать
   XAddr: `http://192.168.30.53:8080/cgi-bin/onvif/device_service`. Память камеры после: 11,4 МБ available, httpd pid 1209 жив.
 - На камере сейчас всё в RAM (положено вручную с Pi). Ждёт владельца: `tools/p1-put.sh` onvif.tgz, onvif-ptz.sh, onvif.conf.tpl,
   autorun.sh → после перезагрузки поднимется само. В Onvifer: добавить устройство вручную по URL выше, admin + ONVIF-пароль.
-  Открытый вопрос: примет ли Onvifer URL с путём `/cgi-bin/onvif/device_service` (в вебе ответа нет) — если нет, план B: порт
-  отдельный httpd со своим корнем, где `/onvif/…` → симлинк на cgi-bin (busybox CGI только под /cgi-bin, проверить).
+  Открытый вопрос: примет ли Onvifer URL с путём `/cgi-bin/onvif/device_service` (в вебе ответа нет). Если нет — план B: второй
+  httpd на другом порту с правилом `P:/onvif/:http://127.0.0.1:8080/cgi-bin/onvif/` (прокси на ДРУГОЙ httpd, не на себя — само-прокси
+  вешало httpd). Симлинк `/onvif/` в другом корне не вариант: busybox исполняет CGI только под `/cgi-bin/`.
 - DECISIONS.md: раздел «ONVIF PTZ для Onvifer». HA-дашборд «Камеры» по-прежнему ждёт рестарта HA владельцем.
