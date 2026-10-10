@@ -1,7 +1,11 @@
 // ptz — быстрый полушаг PTZ MJSXJ05CM на OpenIPC через sysfs GPIO (замена шелл-цикла в ptz.sh).
 //   ptz h|v +|- N [us]   — N полушагов, us = пауза на состояние (мкс), по умолчанию $PTZ_US или 2000 (10.10: 1000 — подёргивается, 2000 — чисто, запас ×2).
-//   ptz hv +|- N +|- M [us] — диагональ: шаговые линии 44–47 общие, селекты 80/16 переключаем на каждом полушаге, оси
-//   идут вперемежку (каждая вдвое медленнее, чем одна). Нужно Onvifer: диагональные стрелки = ContinuousMove по обеим осям.
+//   ptz hv +|- N +|- M [us] — диагональ: шаговые линии 44–47 общие, селекты 80/16; оси едут по очереди пачками по $PTZ_CHUNK
+//   полушагов (по умолчанию 8), каждая вдвое медленнее, чем одна. Нужно Onvifer: диагональные стрелки = ContinuousMove по обеим осям.
+//   Почему пачками, а не по одному полушагу (10.10, измерено снимками): при чередовании 1:1 с разными знаками (вниз-влево,
+//   вверх-вправо) обе оси теряли шаги, с одинаковыми — нет. Порядок записи селектов, мёртвое время до 3 мс и пауза до 20 мс
+//   не помогали → «отпущенный» мотор всё равно чувствует чужую картинку на общих линиях (при одинаковых знаках она его же
+//   и держит). Пачки = как одноосные ходы, где второй мотор спокойно стоит. PTZ_CHUNK=1 возвращает чередование 1:1.
 // Та же таблица 8 состояний и тот же смысл N, что в ptz.sh (калибровка 4100/700 остаётся). GPIO должны быть
 // уже экспортированы и out (ptz.sh init). Любой выход — обмотки обесточены (SIGTERM/SIGINT/ошибка тоже).
 // Сборка: tools/ptz/build.sh (zig cc, static musl armhf). Проверка на Pi: PTZ_GPIO=<каталог-заглушка> ./ptz h + 8 0
@@ -15,11 +19,11 @@
 #include <time.h>
 #include <unistd.h>
 
-static int fd[4], sel[2] = { -1, -1 }; /* sel[0] = h (gpio80), sel[1] = v (gpio16) */
+static int fd[4], sel[2] = { -1, -1 }; /* sel[0] = h (gpio80), sel[1] = v (gpio16), как в ptz.sh */
 static const char seq[8][4] = {{1,0,0,1},{1,0,0,0},{1,1,0,0},{0,1,0,0},{0,1,1,0},{0,0,1,0},{0,0,1,1},{0,0,0,1}};
 
 static void w(int f, int v) { if (write(f, v ? "1" : "0", 1) != 1) { perror("write gpio"); } }
-static void off(void) { for (int i = 0; i < 4; i++) if (fd[i] >= 0) w(fd[i], 0); for (int i = 0; i < 2; i++) if (sel[i] >= 0) w(sel[i], 0); }
+static void off(void) { for (int i = 0; i < 4; i++) if (fd[i] >= 0) w(fd[i], 0); for (int i = 0; i < 2; i++) if (sel[i] >= 0) w(sel[i], 0); }   // как ptz.sh stop
 static void bye(int s) { off(); _exit(128 + s); }
 
 static int opn(const char *base, int g) {
@@ -41,6 +45,8 @@ int main(int argc, char **argv) {
     }
     int ua = 2 + 2 * na;
     long us = argc > ua ? atol(argv[ua]) : (getenv("PTZ_US") ? atol(getenv("PTZ_US")) : 2000);
+    long chunk = getenv("PTZ_CHUNK") ? atol(getenv("PTZ_CHUNK")) : 8;   /* калибровка: полушагов на ось за один захват линий в hv */
+    if (chunk < 1) chunk = 1;
     const char *base = getenv("PTZ_GPIO") ? getenv("PTZ_GPIO") : "/sys/class/gpio";
     for (int i = 0; i < 4; i++) fd[i] = opn(base, 44 + i);
     sel[0] = opn(base, 80); sel[1] = opn(base, 16);
@@ -53,10 +59,13 @@ int main(int argc, char **argv) {
         for (int a = 0; a < 2; a++) {
             if (!use[a] || k[a] >= n[a]) continue;
             any = 1;
-            w(sel[1 - a], 0); w(sel[a], 1);
-            for (int i = 0; i < 4; i++) w(fd[i], seq[st[a]][i]);
-            if (us > 0) nanosleep(&d, NULL);
-            k[a]++; st[a] = (st[a] + dir[a]) & 7;
+            w(sel[1 - a], 0);                                      // чужую ось отпустить, пока на линиях ещё её картинка
+            for (long j = 0; j < chunk && k[a] < n[a]; j++) {
+                for (int i = 0; i < 4; i++) w(fd[i], seq[st[a]][i]);
+                if (j == 0) w(sel[a], 1);                          // свой селект — после своей первой картинки, не раньше
+                if (us > 0) nanosleep(&d, NULL);
+                k[a]++; st[a] = (st[a] + dir[a]) & 7;
+            }
         }
     }
     off();
