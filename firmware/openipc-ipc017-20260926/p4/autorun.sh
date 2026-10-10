@@ -14,5 +14,12 @@ sh /tmp/cam-up.sh
 sh /tmp/ptz.sh init
 [ -x /tmp/ptz ] && sh /tmp/ptz.sh home   # центрирование как у стока; только бинарником (шеллом это 4 минуты)
 # кнопки PTZ для HA — после home, чтобы кнопка не перебила центрирование: httpd отдаёт ТОЛЬКО /tmp/www (в /tmp секреты), см. ptz-cgi.sh
-mkdir -p /tmp/www/cgi-bin; cp "$D"/ptz-cgi.sh /tmp/www/cgi-bin/ptz; chmod 755 /tmp/www/cgi-bin/ptz; httpd -p 8080 -h /tmp/www
+mkdir -p /tmp/www/cgi-bin; cp "$D"/ptz-cgi.sh /tmp/www/cgi-bin/ptz; chmod 755 /tmp/www/cgi-bin/ptz
+# ONVIF для Onvifer (у majestic нет мотор-драйвера): onvif_simple_server как CGI на том же httpd, PTZ → onvif-ptz.sh → /tmp/ptz.
+# p1 — FAT (нет симлинков и +x), поэтому tgz + ln после распаковки; пароль admin берётся из onvif-password.txt, в конфиг на RAM.
+O=/tmp/www/cgi-bin/onvif; mkdir -p $O /tmp/onvif; zcat "$D"/onvif.tgz | tar x -C $O && chmod 755 $O/onvif_simple_server
+for s in device_service media_service ptz_service; do ln -sf onvif_simple_server $O/$s; done
+cp "$D"/onvif-ptz.sh /tmp/; chmod 755 /tmp/onvif-ptz.sh
+sed "s|__PW__|$(sed -n 1p "$D"/onvif-password.txt)|" "$D"/onvif.conf.tpl > /tmp/onvif/onvif_simple_server.conf
+httpd -p 8080 -h /tmp/www
 echo AUTORUN_done

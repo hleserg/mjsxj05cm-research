@@ -49,3 +49,4 @@ uboot/*.bin
 
 # 09.10: распаковка rootfs для NOR (make-rootfs-nor.sh)
 firmware/openipc-ipc017-20260926/*.root/
+!firmware/openipc-ipc017-20260926/p4/onvif.tgz

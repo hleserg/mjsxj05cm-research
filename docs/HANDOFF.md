@@ -294,3 +294,17 @@ uart-logger на Pi можно остановить (нечего слушать
 
 - Владелец не нашёл «влево»: кнопки — сущности без карточки. Сделан дашборд `tools/ha/dashboards/cameras.yaml` (live `camera.mjsxj05cm` + крестовина из `button.mjsxj05cm_ptz_*`, ifeel, кормушка), скопирован на doctor в `dashboards/cameras.yaml`, зарегистрирован в `configuration.yaml` как `iot-cameras` (бэкап `configuration.yaml.bak-20261010-cams`), check_config EXIT=0. **Нужен перезапуск HA владельцем**, потом проверка направления «Влево».
 - Onvifer (ONVIF PTZ): majestic «Lite SigmaStar master+17ec3ed» отвечает на /ptz «No motor driver»; моторы у него только через плагин `/usr/lib/majestic-af.so` (актуатор gpiostep = модуль ядра gpiostep.ko, Goke) — на камере плагина нет, пересборка прошивки + NOR не вариант. План: onvif_simple_server (roleoroleo, клон в scratchpad oss/) как CGI под уже поднятым busybox httpd :8080; сервис выбирается по basename argv[0]; PTZ-команды конфига → `/tmp/ptz h|v ± N` в фоне, stop = kill (у ptz обработчик SIGTERM обесточивает обмотки). Открыто: путь `/onvif/...` зашит в ответах (device_service.c:52–56) — либо прокси-правило `P:` в httpd.conf, либо sed по исходникам; статическая сборка zig + mbedtls/json-c.
+
+## 10.10 09:45 — ONVIF PTZ для Onvifer работает с Pi (RAM), ждёт p1-put и проверки в Onvifer
+
+- Сделано: `tools/onvif/build.sh` (статический onvif_simple_server 95c17f7, патчи путей/конфига, USE_ZLIB) → `p4/onvif.tgz` (257 КБ);
+  `p4/onvif-ptz.sh` (left/right/up/down/stop/home/moving/pos → `/tmp/ptz`, замок `/tmp/ptz.lock`), `p4/onvif.conf.tpl` (`__PW__` ←
+  `onvif-password.txt`, профили `rtsp://%s/stream=0|1`, `snapurl http://%s/image.jpg`, PTZ 360°/96°), блок в `p4/autorun.sh` перед httpd.
+- Проверено с Pi `tools/onvif/soap-test.py`: GetSystemDateAndTime/GetDeviceInformation/GetCapabilities/GetServices/GetProfiles/GetStreamUri/
+  GetSnapshotUri/GetNodes/GetStatus — 200; ContinuousMove влево/вверх → MOVING, Stop → IDLE, замок снят, катушки 0; GotoHome центрирует.
+  XAddr: `http://192.168.30.53:8080/cgi-bin/onvif/device_service`. Память камеры после: 11,4 МБ available, httpd pid 1209 жив.
+- На камере сейчас всё в RAM (положено вручную с Pi). Ждёт владельца: `tools/p1-put.sh` onvif.tgz, onvif-ptz.sh, onvif.conf.tpl,
+  autorun.sh → после перезагрузки поднимется само. В Onvifer: добавить устройство вручную по URL выше, admin + ONVIF-пароль.
+  Открытый вопрос: примет ли Onvifer URL с путём `/cgi-bin/onvif/device_service` (в вебе ответа нет) — если нет, план B: порт
+  отдельный httpd со своим корнем, где `/onvif/…` → симлинк на cgi-bin (busybox CGI только под /cgi-bin, проверить).
+- DECISIONS.md: раздел «ONVIF PTZ для Onvifer». HA-дашборд «Камеры» по-прежнему ждёт рестарта HA владельцем.

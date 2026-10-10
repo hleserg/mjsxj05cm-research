@@ -768,3 +768,19 @@ RTSP камеры с 28.09 закрыт логином (ONVIF admin). Frigate/go
 - HA: пакет `packages/mjsxj05cm_ptz.yaml` (копия в `tools/ha/`): `rest_command` + 5 `template: button`
   (влево/вправо 300, вверх/вниз 100, центр). Не ONVIF: у OpenIPC-прошивки PTZ через ONVIF нет, а majestic не трогаем.
 - Пресеты/отслеживание позиции не делаем (YAGNI): сток их тоже не хранит, `home` переинициализирует по упорам.
+
+## 10.10 — ONVIF PTZ для Onvifer: onvif_simple_server как CGI на httpd :8080
+
+- У majestic PTZ через ONVIF нет (`/ptz` → «No motor driver»; плагин majestic-af умеет только pelco/ms41908/gpiostep с модулем ядра).
+  Majestic не трогаем → второй ONVIF-сервер: roleoroleo/onvif_simple_server (95c17f7), статический musl-бинарник через zig
+  (`tools/onvif/build.sh`), запускается как CGI тем же busybox httpd на :8080: `/cgi-bin/onvif/{device,media,ptz}_service`.
+- Патчи исходников: XAddr `/onvif/` → `/cgi-bin/onvif/` (busybox httpd запускает CGI только из `/cgi-bin/`), конфиг по умолчанию
+  `/tmp/onvif/onvif_simple_server.conf` (CGI не получает `-c`). Шаблоны — `.xml.gz` (USE_ZLIB), 4 нужных сервиса: 824 КБ в tmpfs вместо 2,6 МБ.
+- Доставка: `p4/onvif.tgz` (бинарник + шаблоны; исключение в .gitignore, как `p4/ptz`), `p4/onvif-ptz.sh`, `p4/onvif.conf.tpl`;
+  autorun распаковывает (`zcat | tar x`, у busybox tar нет `-z`), делает симлинки (p1 — FAT) и подставляет пароль admin из
+  `onvif-password.txt` в конфиг на RAM. Учётка та же, что у majestic ONVIF/RTSP (RTSP — Basic, `admin` проверен DESCRIBE).
+- PTZ: `move_*` → `/tmp/onvif-ptz.sh left|right|up|down` → `/tmp/ptz` фоном под общим замком `/tmp/ptz.lock` (как кнопки HA);
+  Stop = `killall ptz` (SIGTERM → катушки обесточены, exit 143 рвёт цепочку `home`). Скорость из ContinuousMove игнорируем.
+  `get_position` = `0,0,0`, `is_moving` по замку — без них GetStatus отдаёт Fault NoStatus.
+- Busybox-прокси `P:/onvif/:…` на самого себя НЕ использовать: httpd перестал отвечать вовсе (10.10 09:2x), спасал рестарт.
+- WS-Discovery нет: телефон в Home, камера в Cam, multicast не ходит → в Onvifer добавлять вручную по URL device_service.
