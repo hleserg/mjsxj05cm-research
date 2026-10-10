@@ -459,3 +459,14 @@ uart-logger на Pi можно остановить (нечего слушать
   secrets.yaml на doctor НЕТ — владелец создаёт (пароль по stdin). Select «авто/день/ночь» отложен: неизвестно, перебивает ли автомат ручной /night/on.
 - После ребута проверить: magenta кадра ≈0 (порядок пинов верный; +3 → поменять 78/79 местами, второй ребут); /metrics night_mode_source 4;
   один /night/on → night_enabled 1, ircut_enabled 1, light_enabled 1, gpio52=1, пурпур ≈+18; подождать ~90 с без /night/off — вернётся ли автомат.
+
+## 11.10 00:49: ночной режим залит и проверен на камере (владелец: p1-put + ребут ~00:45)
+- md5 на p1 совпали (cam-up.sh fcaf9cb5…, ptz.sh 0ce11f1b…). /tmp/m.yaml: irCutPin1 78, irCutPin2 79, backlightPin 52, lightMonitor true.
+- /metrics: night_mode_source 4 (автомат), dwell ночь 15 с / день 60 с, порог night_auto_gain_milli 1200. Мукс 0x1F203C1C = 0x0000.
+- Направление фильтра ВЕРНОЕ: после загрузки (день) пурпур −1.4 ≈ 0. Пины не менять.
+- /night/on → night/ircut/light_enabled 1, gpio52 = 1, кадр ч/б; /night/off → всё 0, gpio52 = 0. Повторный on в том же режиме фильтр не дёргает.
+- ГЛАВНОЕ: ручной режим автомат перебивает. В светлой комнате ручная ночь живёт 60–90 с (dwell дня). Повторный /night/on
+  НЕ сбрасывает night_auto_streak_seconds → «держать» из HA повторами нельзя (будет мигать раз в минуту).
+  Отдельного эндпоинта hold/manual в бинарнике нет (только /night/{on,off,toggle,ircut,light,duty}).
+  Принудительный режим = lightMonitor false → только конфигом (cam-up.sh + ребут) или живым /api/v1/config (запрещено без согласия: риск пересборки конвейера).
+- HA-часть ещё НЕ залита владельцем (secrets.yaml, scp пакета и дашборда, check_config).
