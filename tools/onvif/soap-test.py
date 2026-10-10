@@ -2,7 +2,9 @@
 # tools/onvif/soap-test.py — сырые SOAP-запросы к onvif_simple_server на камере (WS-UsernameToken PasswordDigest, без зависимостей).
 # Использование: python3 tools/onvif/soap-test.py GetCapabilities GetProfiles GetStreamUri GetStatus MoveLeft Stop GotoHome
 import sys, os, base64, hashlib, datetime, http.client, re, time
-HOST, PORT, BASE = "192.168.30.53", 8080, "/cgi-bin/onvif/"
+HOST = "192.168.30.53"
+PORT = int(os.environ.get("ONVIF_PORT", 8080))
+BASE = os.environ.get("ONVIF_BASE", "/cgi-bin/onvif/")
 PW = open(os.path.join(os.path.dirname(__file__), "../../firmware/openipc-ipc017-20260926/p4/secret/onvif-password.txt")).readline().strip()
 def hdr():
     nonce = os.urandom(16); created = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

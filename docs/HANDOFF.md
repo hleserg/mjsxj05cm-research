@@ -305,9 +305,8 @@ uart-logger на Pi можно остановить (нечего слушать
   XAddr: `http://192.168.30.53:8080/cgi-bin/onvif/device_service`. Память камеры после: 11,4 МБ available, httpd pid 1209 жив.
 - На камере сейчас всё в RAM (положено вручную с Pi). Ждёт владельца: `tools/p1-put.sh` onvif.tgz, onvif-ptz.sh, onvif.conf.tpl,
   autorun.sh → после перезагрузки поднимется само. В Onvifer: добавить устройство вручную по URL выше, admin + ONVIF-пароль.
-  Открытый вопрос: примет ли Onvifer URL с путём `/cgi-bin/onvif/device_service` (в вебе ответа нет). Если нет — план B: второй
-  httpd на другом порту с правилом `P:/onvif/:http://127.0.0.1:8080/cgi-bin/onvif/` (прокси на ДРУГОЙ httpd, не на себя — само-прокси
-  вешало httpd). Симлинк `/onvif/` в другом корне не вариант: busybox исполняет CGI только под `/cgi-bin/`.
+  (10.10 10:50: Onvifer URL с путём НЕ принимает, `P:`-прокси в этом busybox нет («config error») — решено отдельным портом 8082,
+  см. ниже.)
 - DECISIONS.md: раздел «ONVIF PTZ для Onvifer». HA-дашборд «Камеры» по-прежнему ждёт рестарта HA владельцем.
 
 ## 10.10 09:49 — блок autorun.sh для ONVIF прогнан на камере, снимок admin'у не отдаётся
@@ -331,3 +330,19 @@ uart-logger на Pi можно остановить (нечего слушать
   уйдут при перезагрузке (autorun ставит симлинки). Лог не коммитить: в телах WS-Security digest.
 - soap-test.py: добавлены GetNode/GetConfigurations/GetConfigurationOptions/RelativeLeft, `RAW=1` печатает тело ответа.
 - Ждёт: владелец повторяет попытку в Onvifer → читать req.log/body.log (какие операции, какие ответы).
+
+### 10.10 10:50 — Onvifer: только host+port → ONVIF на :8082 через nc + onvif-serve.sh
+
+- Владелец: «там нельзя такой адрес вписать» — Onvifer вручную берёт только IP и порт и ходит в `/onvif/device_service`.
+  busybox httpd: CGI только под `/cgi-bin/`, прокси `P:` не собран («config error»), симлинк в другом корне не исполняется.
+- `httpd -i` (inetd) через `nc -e` + пайп не работает: stdin — пайп, getpeername не даёт REMOTE_ADDR, а onvif_simple_server без
+  REMOTE_ADDR молча выходит (conf.c:665 «Cannot determine local address»). Напрямую с полным CGI-окружением бинарник отвечает.
+- Решение: `p4/onvif-serve.sh` — на каждый коннект (`setsid nc -ll -p 8082 -e /tmp/onvif-serve.sh`) разбирает запрос в shell
+  (метод, путь, Content-Length), берёт basename пути (device|media|ptz_service, иначе 404), печатает `HTTP/1.1 200 OK` и зовёт
+  CGI с `env -i` (REMOTE_ADDR=192.168.30.1 фиксирован — всё из дома через NAT; OSS по нему только выбирает свой адрес).
+  Принимает и `/onvif/X`, и `/cgi-bin/onvif/X`. `onvif.conf.tpl`: `port=8082` → XAddr теперь `http://192.168.30.53:8082/cgi-bin/onvif/…`.
+  `autorun.sh`: копирует onvif-serve.sh и поднимает nc перед httpd. `soap-test.py`: env `ONVIF_PORT`/`ONVIF_BASE`.
+- Проверено с Pi через `:8082/onvif/`: GetSystemDateAndTime/GetCapabilities/GetProfiles/GetStreamUri/GetStatus/MoveLeft/Stop/
+  RelativeLeft/GotoHome — все 200, мотор ходит. На камере: nc pid 1992, живой conf переключён на port=8082; всё в RAM.
+- Ждёт владельца: Onvifer → вручную IP 192.168.30.53, порт 8082, admin + ONVIF-пароль; потом `tools/p1-put.sh` onvif.tgz
+  onvif-ptz.sh onvif-serve.sh onvif.conf.tpl autorun.sh (через `!`); рестарт HA для «Камеры».

@@ -21,5 +21,7 @@ O=/tmp/www/cgi-bin/onvif; mkdir -p $O /tmp/onvif; zcat "$D"/onvif.tgz | tar x -C
 for s in device_service media_service ptz_service; do ln -sf onvif_simple_server $O/$s; done
 cp "$D"/onvif-ptz.sh /tmp/; chmod 755 /tmp/onvif-ptz.sh
 sed "s|__PW__|$(sed -n 1p "$D"/onvif-password.txt)|" "$D"/onvif.conf.tpl > /tmp/onvif/onvif_simple_server.conf
+# Onvifer принимает только host+port (путь /onvif/device_service), httpd CGI только под /cgi-bin/ → свой порт 8082: nc + onvif-serve.sh (см. его шапку)
+cp "$D"/onvif-serve.sh /tmp/; chmod 755 /tmp/onvif-serve.sh; setsid nc -ll -p 8082 -e /tmp/onvif-serve.sh </dev/null >/dev/null 2>&1 &
 httpd -p 8080 -h /tmp/www
 echo AUTORUN_done
