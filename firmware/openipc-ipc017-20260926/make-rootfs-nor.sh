@@ -16,8 +16,8 @@ cp p4/init4.sh nor.root/init4.sh
 cp p4/secret/wpa.conf nor.root/wpa.conf
 cp p4/secret/shadow4 nor.root/shadow4
 mkdir -p nor.root/opt/p1
-cp p4/autorun.sh p4/cam-up.sh p4/ptz.sh p4/demo.sh p4/secret/onvif-password.txt nor.root/opt/p1/
-chmod 755 nor.root/opt/p1/*.sh; chmod 600 nor.root/opt/p1/onvif-password.txt
+cp p4/autorun.sh p4/cam-up.sh p4/ptz.sh p4/demo.sh p4/dance.sh p4/ptz p4/ptz-cgi.sh p4/onvif-ptz.sh p4/onvif-serve.sh p4/tcpserve p4/onvif.conf.tpl p4/onvif.tgz p4/secret/onvif-password.txt nor.root/opt/p1/   # 10.10: полный набор p1 (PTZ-бинарник, кнопки HA, ONVIF PTZ, танец)
+chmod 755 nor.root/opt/p1/*.sh nor.root/opt/p1/ptz nor.root/opt/p1/tcpserve; chmod 600 nor.root/opt/p1/onvif-password.txt
 chmod 4755 nor.root/bin/busybox   # unsquashfs без root теряет setuid
 mksquashfs nor.root rootfs-nor.squashfs -comp xz -all-root -noappend -no-progress -quiet
 rm -rf nor.root

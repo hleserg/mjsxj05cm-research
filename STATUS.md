@@ -70,6 +70,8 @@ JEDEC `1C 70 18` (EN25QH128A), 16 MiB, erase `0x10000`.
 
 ## Root / Video / Audio / PTZ / IR‑Night / Motion / SD / ONVIF / HA
 
+**10.10: раздел ниже — история 28.09; промежуточные образы sd-stage3…7 и их скрипты из репо удалены (есть в git-истории). Актуальное — в «Кратко» вверху, README и DECISIONS.md.**
+
 **28.09:** этапы 0–2 пройдены, этап 3 (запись во flash) НЕ начат. Root по SSH со своим паролем (dropbear на карте), видео MAIN через majestic (RTSP/ONVIF/jpg; SUB `video1` пока выключен), аудио вход/выход, IR‑cut GPIO 78/79, лампа pwm0, моторы `p4/ptz.sh` (GPIO‑полушаг), всё RAM‑only с карты. Открыто: стороны моторов после сборки стойки, NTP, автостарт, motion/записи, HA. Ниже — план, как он был записан 27.09. Путь: OpenIPC профиля `ssc325_lite_chuangmi-ipc017` (то же железо: SSC323, GC2053, MT7601U, MTD, bootargs). План младшего «три этапа» проверен и переработан 27.09 ~23:50 ([DECISIONS.md](DECISIONS.md) «ревизия плана … итоговый план»), отчёт Астры учтён.
 0. Стол — **сделано 28.09 ~00:40** кроме разбора grablya95 (идёт): `firmware/openipc-ipc017-20260926/sd-stage2.img` (73 MiB: p1 FAT32 с uImage, kernel/rootfs.pad.bin, стоковыми mtd-*.bin для отката и CRC.txt; p2 = rootfs.squashfs), собирается `make-sd.sh`, файлы внутри сверены по sha256; `CRC.txt` (CRC32/SHA‑256 дополненных образов, стоковых разделов и блока 0xFF); `uart/stage.py` (этапы 1/2pre/2a/2b, selftest, запрещённые команды U‑Boot отфильтрованы, консоль в Linux через FIFO `uart/console.in`).
 1. Root shell стока из RAM (`init=/bin/sh`, без `saveenv`) — карта GPIO, `dmesg`, `.ko` (~45 мин, «да» есть).

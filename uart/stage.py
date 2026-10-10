@@ -45,13 +45,13 @@ STAGES = {
         "bootm 0x22000000",
     ],
     # Приём по UART мёртв под ОБОИМИ ядрами (28.09), поэтому команды не шлём: init=/recon.sh на p3 карты
-    # (стоковый rootfs + скрипт, sd-stage3.img) сам печатает разведку в TX и в конце exec /bin/sh.
+    # (стоковый rootfs + скрипт, образ этапа 3, в репо не хранится) сам печатает разведку в TX и в конце exec /bin/sh.
     "2a-p3": SD_PRE + [
         f"setenv bootargs console=ttyS0,115200 root=/dev/mmcblk0p3 rootwait rootfstype=squashfs init=/recon.sh {MEM}",
         "bootm 0x22000000",
     ],
     # sd-stage4.img: p3 = rootfs OpenIPC + /init4.sh (Wi-Fi + dropbear с карты, потом окна RX-эксперимента,
-    # строки по маркерам шлёт uart/win4.sh). NOR не трогаем.
+    # строки по маркерам слал uart/win4.sh — удалён 10.10, см. историю git). NOR не трогаем.
     "2a-p4": SD_PRE + [
         f"setenv bootargs console=ttyS0,115200 root=/dev/mmcblk0p3 rootwait rootfstype=squashfs init=/init4.sh {MEM}",
         "bootm 0x22000000",

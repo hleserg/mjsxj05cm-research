@@ -51,3 +51,6 @@ uboot/*.bin
 firmware/openipc-ipc017-20260926/*.root/
 !firmware/openipc-ipc017-20260926/p4/onvif.tgz
 tools/dance/*.wav
+# 10.10: промежуточные образы/логи этапов не храним
+*.out
+firmware/*.log

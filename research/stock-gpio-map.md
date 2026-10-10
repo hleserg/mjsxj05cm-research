@@ -3,7 +3,7 @@
 Источник: дизассемблирование (capstone) `lib/libdevice_kit.so.0.0.1`, `lib/libboardav.so.1.0.0`, `bin/miio_algo`
 из собственного дампа DATA (jffs2) + DTB, встроенный в стоковое ядро (0x307870 в vmlinux) и в ядро OpenIPC IPC017 (0x3a7af0).
 Скрипт: `firmware/openipc-ipc017-20260926/.venv` + `disasm.py` (в scratchpad сессии; при необходимости восстановить — capstone+pyelftools).
-**Всё ниже — из кода, не с живой платы. Проверять на этапе 1 (`uart/stage1-recon.sh`).**
+**Всё ниже — из кода, не с живой платы. Проверено на этапе 1 (28.09) и живой работой PTZ/ИК/звука — см. `firmware/openipc-ipc017-20260926/p4/ptz.sh`, DECISIONS.md.**
 
 | Узел | Интерфейс | Номера | Откуда |
 |---|---|---|---|
