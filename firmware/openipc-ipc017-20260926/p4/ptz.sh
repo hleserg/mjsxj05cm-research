@@ -23,11 +23,11 @@ lamp() { P=/sys/class/pwm/pwmchip0; [ -d $P/pwm0 ] || echo 0 > $P/export; echo 8
 case "$1" in
 init)
   for g in 44 45 46 47 80 16; do gpio $g 0; done
-  devmem 0x1F203C1C 16 0x0001   # pwm4 mux снят; bit0 = pwm0 → pad52 (ИК-лампа) оставлен
+  devmem 0x1F203C1C 16 0x0000   # pwm4 mux снят; 10.10: bit0 (pwm0→pad52) тоже снят — лампу держит majestic как GPIO52 (backlightPin)
   devmem 0x1F203C08 16 0x0000   # pwm5/6/7 mux снят
   echo 1 > $G/gpio44/value
   if [ "$(cat $G/gpio44/value)" = 1 ]; then echo "ptz init ок"; else echo "ptz init: pad44 не в GPIO-режиме"; fi
-  lamp 0; stop ;;
+  stop ;;   # 10.10: lamp 0 убран — pwm0 больше не на паде, лампа у majestic (/night/light)
 lamp) lamp ${2:-0} ;;
 home) sh $0 h - 4300 && sh $0 h + 2050 && sh $0 v + 800 && sh $0 v - 350 && echo "ptz home ок" ;;
 h|v)

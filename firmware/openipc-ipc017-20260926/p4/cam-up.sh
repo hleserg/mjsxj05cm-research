@@ -27,6 +27,7 @@ sed -e '/^video1:/,/^[a-z]/ s/enabled: false/enabled: true/' \
     -e "$REC" \
     -e 's/^rtsp:/rtsp:\n  audioCodec: aac\n  backchannel: true/' \
     -e '/^osd:/,/^[a-z]/ s/^  enabled: false/  enabled: true/' \
+    -e '/^nightMode:/,/^[a-z]/ { s/lightMonitor: false/lightMonitor: true/; s/^  colorToGray: true/  colorToGray: true\n  irCutPin1: 78\n  irCutPin2: 79\n  backlightPin: 52/ }' \
     -e '/^audio:/,/^[a-z]/ { s/enabled: false/enabled: true/; s/outputEnabled: false/outputEnabled: true/; s/  volume: 30/  volume: 70/; s/outputVolume: 30/outputVolume: 60/ }' /etc/majestic.yaml > /tmp/m.yaml
 grep -A2 '^watchdog:' /tmp/m.yaml
 mountpoint -q /etc/majestic.yaml || mount --bind /tmp/m.yaml /etc/majestic.yaml
@@ -34,6 +35,8 @@ mountpoint -q /etc/majestic.yaml || mount --bind /tmp/m.yaml /etc/majestic.yaml
 # в mma_heap) — на UART 115200 это ~2 КБ/с и load ~9. Консоль только до KERN_ERR (уровень 4 режет флуд: замер +100 Б/с); EMERG/panic видны.
 # 10.10 04:5x: OSD с датой/временем (шаблон по умолчанию %d.%m.%Y %H:%M:%S), время — NTP со шлюза (autorun.sh); /etc — tmpfs,
 # TZ ставим здесь: S95majestic экспортирует TZ из /etc/TZ (в rootfs GMT0). backchannel — обратный звук (ONVIF/RTSP) в динамик.
+# 10.10 17:00: ночной режим — автомат majestic по экспозиции (lightMonitor), ИК-фильтр H-мост GPIO 78/79 (как сток, 500 мс),
+# ИК-лампа GPIO 52 вкл/выкл (backlightPin; PWM-строк в бинарнике нет — pwm0 мукс снимает ptz.sh init). Ручное: /night/on|off|toggle (root).
 echo MSK-3 > /etc/TZ
 echo "4 4 1 7" > /proc/sys/kernel/printk
 /etc/init.d/S95majestic start
