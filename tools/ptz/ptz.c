@@ -1,5 +1,5 @@
 // ptz — быстрый полушаг PTZ MJSXJ05CM на OpenIPC через sysfs GPIO (замена шелл-цикла в ptz.sh).
-//   ptz h|v +|- N [us]   — N полушагов, us = пауза на состояние (мкс), по умолчанию $PTZ_US или 8000.
+//   ptz h|v +|- N [us]   — N полушагов, us = пауза на состояние (мкс), по умолчанию $PTZ_US или 2000 (10.10: 1000 — подёргивается, 2000 — чисто, запас ×2).
 // Та же таблица 8 состояний и тот же смысл N, что в ptz.sh (калибровка 4100/700 остаётся). GPIO должны быть
 // уже экспортированы и out (ptz.sh init). Любой выход — обмотки обесточены (SIGTERM/SIGINT/ошибка тоже).
 // Сборка: tools/ptz/build.sh (zig cc, static musl armhf). Проверка на Pi: PTZ_GPIO=<каталог-заглушка> ./ptz h + 8 0
@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "ptz h|v +|- полушаги [мкс]\n"); return 2;
     }
     long n = atol(argv[3]);
-    long us = argc > 4 ? atol(argv[4]) : (getenv("PTZ_US") ? atol(getenv("PTZ_US")) : 8000);
+    long us = argc > 4 ? atol(argv[4]) : (getenv("PTZ_US") ? atol(getenv("PTZ_US")) : 2000);
     const char *base = getenv("PTZ_GPIO") ? getenv("PTZ_GPIO") : "/sys/class/gpio";
     for (int i = 0; i < 4; i++) fd[i] = opn(base, 44 + i);
     sel = opn(base, argv[1][0] == 'h' ? 80 : 16);

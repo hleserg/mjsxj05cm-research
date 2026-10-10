@@ -14,7 +14,7 @@
 # на состояние: 4 записи sysfs + fork usleep). 10.10: h|v делегируется бинарнику /tmp/ptz (tools/ptz/ptz.c, static musl),
 # там пауза = PTZ_US честно; рабочее значение подбирается по срыву шагов (см. DECISIONS.md).
 # PTZ_US=20000 — задержка на состояние, мкс (калибровочная ручка: меньше = быстрее, слишком мало = пропуск шагов).
-G=/sys/class/gpio; US=${PTZ_US:-8000}
+G=/sys/class/gpio; US=${PTZ_US:-2000}
 gpio() { [ -d $G/gpio$1 ] || echo $1 > $G/export; echo out > $G/gpio$1/direction; echo ${2:-0} > $G/gpio$1/value; }
 set4() { echo $1 > $G/gpio44/value; echo $2 > $G/gpio45/value; echo $3 > $G/gpio46/value; echo $4 > $G/gpio47/value; }
 stop() { set4 0 0 0 0; echo 0 > $G/gpio80/value; echo 0 > $G/gpio16/value; }
