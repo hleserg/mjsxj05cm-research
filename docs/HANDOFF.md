@@ -445,3 +445,17 @@ uart-logger на Pi можно остановить (нечего слушать
 **10.10 16:18: ИНЦИДЕНТ — majestic убит OOM-killer в 16:08 (13:08 UTC), моя вина.** Причина: при снятии точки отката я запустил на камере `tar -cf /tmp/p1.tar` — tmpfs /tmp (лимит 17.6 МБ) ест RAM, а свободно было ~13 МБ: ядро упёрлось в free 732 кБ раньше, чем tar в ENOSPC, и убило majestic (score 161; syslog.log строки 1353–1404, MI-модули отпустили клиента 647 штатно). Камера жива: uptime с 15:03, ssh/httpd :8080/ONVIF :8082 отвечают, `/etc/majestic.yaml` (bind /tmp/m.yaml, volume 70) цел, p1/p4 целы, аппаратный WDT не сработал. **Нет RTSP/порт 80 → Frigate без потока.** Лечение: только `reboot -f` владельцем (cam-up.sh: повторный старт majestic течёт по MMA). **Правило навсегда: в /tmp камеры не писать больше ~1–2 МБ; дампы/архивы только потоком `camssh.py --pipe`/`--get` (уже сделано, p1.tar/p4.tar сняты так).** Вопрос владельца про авто-ночной режим: ответ готов (сейчас автомата нет — в nightMode нет пинов IR-cut/лампы; план — nightMode в cam-up.sh + HA select), ждёт ребута.
 
 **10.10 16:25: камера ПОДНЯТА — владелец `reboot -f` 16:23, majestic 647, mma fail 0, /image.jpg 200, RTSP слушает, /metrics: night_enabled 0, ircut_enabled 0, light_enabled 0. majestic HTTP :80: `/night/` → «0» (root-auth, 401 без), `/api/v1/night` 404, `/api/v1/config` GET 405. Открытое: аппаратный WDT не перезагрузил камеру при мёртвом majestic (не покрывает этот отказ) — не на сегодня. Дальше: ночной режим.
+
+## 10.10 16:42: ночной режим — код готов, ждёт заливки на p1 + ребута владельцем
+- Вопрос владельца: «ночная съёмка с ИК автоматом будет врубаться? + рычаг в HA». Сейчас — нет: nightMode в majestic голый (lightMonitor: false, пинов нет).
+- Живой тест железа (RAM, без ребута, кадры только числами): импульс GPIO 78↑/79↓ (500 мс, как сток) выводит ИК-фильтр (пурпур +3), 78↓/79↑ возвращает;
+  лампа работает и через pwm0 (ptz.sh lamp 100), и как GPIO52 (мукс 0x1F203C1C bit0=0, value 1) — +15 по синему. Всё возвращено в исходное.
+- В бинарнике majestic есть /sys/class/gpio (%s/gpio%d/value), но НЕТ строк /sys/class/pwm|pwmchip|duty_cycle → backlightPwmChannel на SigmaStar
+  скорее пустышка (wiki: PWM-диммер «для HiSilicon/Goke»). Решение (advisor): лампа как GPIO52 (backlightPin: 52), без диммера.
+- cam-up.sh: sed nightMode → lightMonitor: true, irCutPin1: 78, irCutPin2: 79, backlightPin: 52 (colorToGray остаётся). Проверено на камере: конвейер
+  в /tmp/m-test.yaml, блок верный. ptz.sh init: мукс pwm0 снят (0x0000), lamp 0 убран (лампу держит majestic). dance.sh лампа → теперь пустышка (отложено).
+- HA (tools/ha/mjsxj05cm_ptz.yaml + dashboards/cameras.yaml): rest_command mjsxj05cm_night → http://192.168.30.53/night/{{cmd}} (root, !secret mjsxj05cm_root),
+  кнопки button.mjsxj05cm_night_on/off, sensor.mjsxj05cm_night (REST /night/, 60 с, день/ночь), ряд «День | Ночной режим | Ночь» в дашборде. YAML проверен PyYAML.
+  secrets.yaml на doctor НЕТ — владелец создаёт (пароль по stdin). Select «авто/день/ночь» отложен: неизвестно, перебивает ли автомат ручной /night/on.
+- После ребута проверить: magenta кадра ≈0 (порядок пинов верный; +3 → поменять 78/79 местами, второй ребут); /metrics night_mode_source 4;
+  один /night/on → night_enabled 1, ircut_enabled 1, light_enabled 1, gpio52=1, пурпур ≈+18; подождать ~90 с без /night/off — вернётся ли автомат.

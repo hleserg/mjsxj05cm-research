@@ -6,10 +6,18 @@
 #  как у стока (≈20 с). Ответ `ok` сразу, движение фоном; `busy` — мотор ещё едет.
 #  Без auth: сегмент Cam доступен только из Home/WG. Перезагрузка HA не нужна:
 #  Developer tools → YAML → «REST commands» и «Template entities».
+#  10.10: ночной режим — majestic сам переключает день/ночь по экспозиции (ИК-фильтр + ИК-лампа);
+#  кнопки «ночь»/«день» дёргают /night/on|off на :80 (root, пароль в secrets.yaml: mjsxj05cm_root),
+#  sensor.mjsxj05cm_night опрашивает /night/ раз в минуту (0 = день, 1 = ночь). Сенсор: YAML → «REST entities».
 # =============================================================================
 rest_command:
   mjsxj05cm_ptz:
     url: "http://192.168.30.53:8080/cgi-bin/ptz?{{ cmd }}"
+    timeout: 5
+  mjsxj05cm_night:
+    url: "http://192.168.30.53/night/{{ cmd }}"
+    username: root
+    password: !secret mjsxj05cm_root
     timeout: 5
 
 template:
@@ -49,3 +57,33 @@ template:
         press:
           - action: rest_command.mjsxj05cm_ptz
             data: {cmd: "home"}
+      - name: "Камера: ночь (ИК)"
+        unique_id: mjsxj05cm_night_on
+        default_entity_id: button.mjsxj05cm_night_on
+        icon: mdi:weather-night
+        press:
+          - action: rest_command.mjsxj05cm_night
+            data: {cmd: "on"}
+          - action: homeassistant.update_entity
+            target: {entity_id: sensor.mjsxj05cm_night}
+      - name: "Камера: день"
+        unique_id: mjsxj05cm_night_off
+        default_entity_id: button.mjsxj05cm_night_off
+        icon: mdi:white-balance-sunny
+        press:
+          - action: rest_command.mjsxj05cm_night
+            data: {cmd: "off"}
+          - action: homeassistant.update_entity
+            target: {entity_id: sensor.mjsxj05cm_night}
+
+sensor:
+  - platform: rest
+    name: mjsxj05cm_night
+    unique_id: mjsxj05cm_night
+    resource: http://192.168.30.53/night/
+    username: root
+    password: !secret mjsxj05cm_root
+    authentication: basic
+    scan_interval: 60
+    timeout: 5
+    value_template: "{{ 'ночь' if value | trim == '1' else 'день' }}"
