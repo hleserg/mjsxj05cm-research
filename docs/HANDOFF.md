@@ -289,3 +289,8 @@ uart-logger на Pi можно остановить (нечего слушать
   Владельцу: Developer tools → YAML → «REST commands» и «Template entities» (или рестарт HA),
   потом `./scripts/normalize-entity-ids.sh` не нужен — entity_id заданы через `default_entity_id`.
 - Дальше: владелец жмёт «влево» и говорит, туда ли уехала картинка. Потом по желанию: basic auth, переключатель ИК-лампы.
+
+## 10.10 09:20 — дашборд «Камеры» в HA; Onvifer: разведка
+
+- Владелец не нашёл «влево»: кнопки — сущности без карточки. Сделан дашборд `tools/ha/dashboards/cameras.yaml` (live `camera.mjsxj05cm` + крестовина из `button.mjsxj05cm_ptz_*`, ifeel, кормушка), скопирован на doctor в `dashboards/cameras.yaml`, зарегистрирован в `configuration.yaml` как `iot-cameras` (бэкап `configuration.yaml.bak-20261010-cams`), check_config EXIT=0. **Нужен перезапуск HA владельцем**, потом проверка направления «Влево».
+- Onvifer (ONVIF PTZ): majestic «Lite SigmaStar master+17ec3ed» отвечает на /ptz «No motor driver»; моторы у него только через плагин `/usr/lib/majestic-af.so` (актуатор gpiostep = модуль ядра gpiostep.ko, Goke) — на камере плагина нет, пересборка прошивки + NOR не вариант. План: onvif_simple_server (roleoroleo, клон в scratchpad oss/) как CGI под уже поднятым busybox httpd :8080; сервис выбирается по basename argv[0]; PTZ-команды конфига → `/tmp/ptz h|v ± N` в фоне, stop = kill (у ptz обработчик SIGTERM обесточивает обмотки). Открыто: путь `/onvif/...` зашит в ответах (device_service.c:52–56) — либо прокси-правило `P:` в httpd.conf, либо sed по исходникам; статическая сборка zig + mbedtls/json-c.
