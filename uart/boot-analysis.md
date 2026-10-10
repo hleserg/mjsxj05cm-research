@@ -59,7 +59,7 @@ Erase size `0x10000`. Совпадает с раскладкой khmyznikov (boo
 ## U‑Boot остановлен (27.09 07:38) — `uart/uboot-20260927-073616.log`
 
 - Провод Pi pin 8 → резистор → площадка 14 (RX камеры). `uart/uboot-ro.py` слал `\r` с момента включения; приглашение **`SigmaStar # `**. Выполнены только `version`, `help`, `printenv`, `bdinfo` (последней в сборке нет).
-- `printenv`: `bootdelay=0`, `bootcmd=sf probe 0;sf read 0x22000000 ${sf_kernel_start} ${sf_kernel_size};bootm 0x22000000`, `sf_kernel_start=50000`, `sf_kernel_size=200000`; стоп‑строки нет. Env 621/4092 байт. `ethaddr=00:30:1b:ba:02:db` и сетевые адреса `172.17.190.x` — заводские, не наши.
+- `printenv`: `bootdelay=0`, `bootcmd=sf probe 0;sf read 0x22000000 ${sf_kernel_start} ${sf_kernel_size};bootm 0x22000000`, `sf_kernel_start=50000`, `sf_kernel_size=200000`; стоп‑строки нет. Env 621/4092 байт. `ethaddr=xx:xx:xx:xx:xx:xx` и сетевые адреса `172.17.190.x` — заводские, не наши.
 - `help`, что важно для dump:
   - **`fatwrite` нет** → способ 1 (sf read → fatwrite на SD) невозможен как есть.
   - есть `sf`, `md`, `cmp`, `crc32`, `mmc`, `fatls/fatload/fatread`, `sfbin` (TFTP‑выгрузка flash, но сети в U‑Boot нет: `No ethernet found`).
