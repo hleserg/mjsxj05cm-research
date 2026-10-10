@@ -197,3 +197,25 @@ STATUS.md, FULL-CONTROL-ACCEPTANCE.md.
 - 04:3x владелец через `!`: `tools/p1-put.sh cam-up.sh` (md5 ff611bb8 совпал) + `sync; reboot -f`. Камера поднялась за ~1 мин, `/etc/majestic.yaml:64 audioCodec: aac`.
 - ffprobe `stream=0` без параметров: `h264 / aac 8000`. go2rtc во Frigate переподключился сам: main и sub — `MPEG4-GENERIC/8000` (AAC), fps 5.3. HA (HLS) теперь получает AAC — владельцу глянуть карточку; при тишине один раз перезагрузить интеграцию ONVIF.
 - Не срочно (в STOP при пересборке NOR): `/opt/p1/cam-up.sh` и `/opt/p1/onvif-password.txt` в rootfs NOR устарели (нужны только без карты).
+
+## 10.10 04:51 — OSD дата/время (время с роутера), backchannel: ПРАВКА ГОТОВА, ждёт p1-put + reboot
+
+Владелец: «роутер будет раздавать время, надо брать и добавлять на метку». Время камера уже берёт NTP со шлюза
+(autorun.sh, ntpd -p gw; на роутере option 42 → .30.1). Часы камеры UTC, /etc/TZ=GMT0, /etc — tmpfs, S95majestic
+экспортирует TZ из /etc/TZ. Правка cam-up.sh (коммит f65719c): `echo MSK-3 > /etc/TZ` до старта majestic,
+osd.enabled: true (шаблон по умолчанию %d.%m.%Y %H:%M:%S, слева сверху), rtsp.backchannel: true (обратный звук
+в динамик по ONVIF/RTSP). bash -n и sed-прогон на копии majestic.yaml с камеры — ОК. На карте p1 пока старая
+версия (ff611bb8, только audioCodec).
+
+Команда владельцу: `tools/p1-put.sh firmware/openipc-ipc017-20260926/p4/cam-up.sh && timeout 12 python3 uart/camssh.py "sync; reboot -f"`.
+
+Проверка после ребута: md5 /tmp/p1/cam-up.sh = локальному; `date` на камере — MSK; /etc/majestic.yaml osd enabled,
+rtsp backchannel; /image.jpg → время на кадре (кадр приватный, не публиковать); free, `dmesg | grep -ci mma`
+(до ребута 5), go2rtc fps ~5 и AAC. Откат: убрать строку osd в sed-цепочке, p1-put, reboot.
+
+Риск: бегущие секунды в OSD на detect-потоке = вечное движение в Frigate → владельцу нарисовать маску движения
+поверх метки (Frigate UI → Settings → Motion masks, камера mjsxj05cm). Динамик: штатный есть, audio.outputEnabled
+уже true; majestic имеет /play_audio (strings /usr/bin/majestic) — быстрый тест после подключения динамика.
+dmesg: `[AUDIO ERROR]DrvAudStartDma error status 4` ×2 — не разобрано, перепроверить с динамиком. Зум: объектив
+фиксированный, оптического зума в стоке нет (только цифровой в Mi Home). В ~/router-migration/HANDOFF.md
+записано: NTP-сервер на Cam-сегменте NC-1012 оставить.
