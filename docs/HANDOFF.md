@@ -283,7 +283,7 @@ uart-logger на Pi можно остановить (нечего слушать
 - Камера (RAM): `httpd -p 8080 -h /tmp/www`, CGI `/tmp/www/cgi-bin/ptz` = `p4/ptz-cgi.sh` (md5 c636443a).
   Тесты: `left=abc`/`up=99999`/`x=1` → bad, `home` → ok, повтор сразу → busy, замок снимается.
   Доступ с doctor (:8080) проверен. Направления: `h +` = влево (кадр уезжает вправо), `v +` = вверх.
-- autorun.sh в репо получил строки httpd; на p1 ещё старая версия (e1f48901) — **залить ptz-cgi.sh + autorun.sh**
+- autorun.sh в репо получил строки httpd (после `home`, чтобы кнопка не перебила центрирование); на p1 ещё старая версия (e1f48901) — **залить ptz-cgi.sh + autorun.sh**
   (`tools/p1-put.sh`), перезагрузка не нужна.
 - HA: `tools/ha/mjsxj05cm_ptz.yaml` скопирован на doctor в `packages/`, `check_config` чистый.
   Владельцу: Developer tools → YAML → «REST commands» и «Template entities» (или рестарт HA),
