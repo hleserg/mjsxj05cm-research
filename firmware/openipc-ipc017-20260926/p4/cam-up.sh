@@ -27,7 +27,7 @@ sed -e '/^video1:/,/^[a-z]/ s/enabled: false/enabled: true/' \
     -e "$REC" \
     -e 's/^rtsp:/rtsp:\n  audioCodec: aac\n  backchannel: true/' \
     -e '/^osd:/,/^[a-z]/ s/^  enabled: false/  enabled: true/' \
-    -e '/^audio:/,/^[a-z]/ { s/enabled: false/enabled: true/; s/outputEnabled: false/outputEnabled: true/; s/  volume: 30/  volume: 100/; s/outputVolume: 30/outputVolume: 60/ }' /etc/majestic.yaml > /tmp/m.yaml
+    -e '/^audio:/,/^[a-z]/ { s/enabled: false/enabled: true/; s/outputEnabled: false/outputEnabled: true/; s/  volume: 30/  volume: 50/; s/outputVolume: 30/outputVolume: 60/ }' /etc/majestic.yaml > /tmp/m.yaml
 grep -A2 '^watchdog:' /tmp/m.yaml
 mountpoint -q /etc/majestic.yaml || mount --bind /tmp/m.yaml /etc/majestic.yaml
 # 28.09 18:40: majestic непрерывно (~10/с) печатает в консоль "[MI ERR] … vpe0-out0-1 … mma fail" (3-й буфер 0x2fd000 не влезает
