@@ -54,3 +54,4 @@ tools/dance/*.wav
 # 10.10: промежуточные образы/логи этапов не храним
 *.out
 firmware/*.log
+firmware/openipc-ipc017-20260926/restore-*/
