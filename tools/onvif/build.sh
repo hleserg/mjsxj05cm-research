@@ -29,3 +29,6 @@ for d in generic_files device_service_files media_service_files ptz_service_file
   mkdir "$P/$d"; for f in "$d"/*.xml; do gzip -9c "$f" > "$P/$d/$(basename "$f").gz"; done; done
 tar czf "$R/firmware/openipc-ipc017-20260926/p4/onvif.tgz" -C "$P" .
 file onvif_simple_server; ls -la "$R/firmware/openipc-ipc017-20260926/p4/onvif.tgz"
+
+# tcpserve — крошечный форкающий TCP-сервер вместо busybox `nc -ll -e` (тот виснет в vfork), см. tools/onvif/tcpserve.c
+"$Z" -Os -static -s -o "$R/firmware/openipc-ipc017-20260926/p4/tcpserve" "$R/tools/onvif/tcpserve.c"; file "$R/firmware/openipc-ipc017-20260926/p4/tcpserve"

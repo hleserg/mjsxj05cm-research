@@ -1,5 +1,7 @@
 // ptz — быстрый полушаг PTZ MJSXJ05CM на OpenIPC через sysfs GPIO (замена шелл-цикла в ptz.sh).
 //   ptz h|v +|- N [us]   — N полушагов, us = пауза на состояние (мкс), по умолчанию $PTZ_US или 2000 (10.10: 1000 — подёргивается, 2000 — чисто, запас ×2).
+//   ptz hv +|- N +|- M [us] — диагональ: шаговые линии 44–47 общие, селекты 80/16 переключаем на каждом полушаге, оси
+//   идут вперемежку (каждая вдвое медленнее, чем одна). Нужно Onvifer: диагональные стрелки = ContinuousMove по обеим осям.
 // Та же таблица 8 состояний и тот же смысл N, что в ptz.sh (калибровка 4100/700 остаётся). GPIO должны быть
 // уже экспортированы и out (ptz.sh init). Любой выход — обмотки обесточены (SIGTERM/SIGINT/ошибка тоже).
 // Сборка: tools/ptz/build.sh (zig cc, static musl armhf). Проверка на Pi: PTZ_GPIO=<каталог-заглушка> ./ptz h + 8 0
@@ -13,11 +15,11 @@
 #include <time.h>
 #include <unistd.h>
 
-static int fd[4], sel = -1;
+static int fd[4], sel[2] = { -1, -1 }; /* sel[0] = h (gpio80), sel[1] = v (gpio16) */
 static const char seq[8][4] = {{1,0,0,1},{1,0,0,0},{1,1,0,0},{0,1,0,0},{0,1,1,0},{0,0,1,0},{0,0,1,1},{0,0,0,1}};
 
 static void w(int f, int v) { if (write(f, v ? "1" : "0", 1) != 1) { perror("write gpio"); } }
-static void off(void) { for (int i = 0; i < 4; i++) if (fd[i] >= 0) w(fd[i], 0); if (sel >= 0) w(sel, 0); }
+static void off(void) { for (int i = 0; i < 4; i++) if (fd[i] >= 0) w(fd[i], 0); for (int i = 0; i < 2; i++) if (sel[i] >= 0) w(sel[i], 0); }
 static void bye(int s) { off(); _exit(128 + s); }
 
 static int opn(const char *base, int g) {
@@ -28,27 +30,38 @@ static int opn(const char *base, int g) {
 }
 
 int main(int argc, char **argv) {
-    if (argc < 4 || (argv[1][0] != 'h' && argv[1][0] != 'v') || (argv[2][0] != '+' && argv[2][0] != '-')) {
-        fprintf(stderr, "ptz h|v +|- полушаги [мкс]\n"); return 2;
+    int two = argc > 1 && !strcmp(argv[1], "hv"), na = two ? 2 : 1, use[2] = { 0, 0 }, dir[2], st[2];
+    long n[2] = { 0, 0 }, k[2] = { 0, 0 };
+    const char *usage = "ptz h|v +|- полушаги [мкс]  |  ptz hv +|- N +|- M [мкс]\n";
+    if (argc < (two ? 6 : 4) || (!two && argv[1][0] != 'h' && argv[1][0] != 'v')) { fputs(usage, stderr); return 2; }
+    for (int a = 0; a < na; a++) {
+        int ax = two ? a : (argv[1][0] == 'h' ? 0 : 1); const char *sg = argv[2 + 2 * a];
+        if (sg[0] != '+' && sg[0] != '-') { fputs(usage, stderr); return 2; }
+        use[ax] = 1; dir[ax] = sg[0] == '+' ? 1 : -1; n[ax] = atol(argv[3 + 2 * a]); st[ax] = dir[ax] > 0 ? 0 : 7;
     }
-    long n = atol(argv[3]);
-    long us = argc > 4 ? atol(argv[4]) : (getenv("PTZ_US") ? atol(getenv("PTZ_US")) : 2000);
+    int ua = 2 + 2 * na;
+    long us = argc > ua ? atol(argv[ua]) : (getenv("PTZ_US") ? atol(getenv("PTZ_US")) : 2000);
     const char *base = getenv("PTZ_GPIO") ? getenv("PTZ_GPIO") : "/sys/class/gpio";
     for (int i = 0; i < 4; i++) fd[i] = opn(base, 44 + i);
-    sel = opn(base, argv[1][0] == 'h' ? 80 : 16);
-    int other = opn(base, argv[1][0] == 'h' ? 16 : 80);
+    sel[0] = opn(base, 80); sel[1] = opn(base, 16);
     signal(SIGTERM, bye); signal(SIGINT, bye); signal(SIGHUP, bye);
-    off(); w(other, 0); w(sel, 1);
+    off();
     struct timespec t0, t1, d = { us / 1000000, (us % 1000000) * 1000 };
     clock_gettime(CLOCK_MONOTONIC, &t0);
-    int dir = argv[2][0] == '+' ? 1 : -1, s = dir > 0 ? 0 : 7;
-    for (long k = 0; k < n; k++, s = (s + dir) & 7) {
-        for (int i = 0; i < 4; i++) w(fd[i], seq[s][i]);
-        if (us > 0) nanosleep(&d, NULL);
+    for (int any = 1; any;) {
+        any = 0;
+        for (int a = 0; a < 2; a++) {
+            if (!use[a] || k[a] >= n[a]) continue;
+            any = 1;
+            w(sel[1 - a], 0); w(sel[a], 1);
+            for (int i = 0; i < 4; i++) w(fd[i], seq[st[a]][i]);
+            if (us > 0) nanosleep(&d, NULL);
+            k[a]++; st[a] = (st[a] + dir[a]) & 7;
+        }
     }
     off();
     clock_gettime(CLOCK_MONOTONIC, &t1);
     double el = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) / 1e9;
-    printf("ptz %s%s %ld ок, %.2f с, %.0f полушагов/с\n", argv[1], argv[2], n, el, el > 0 ? n / el : 0);
+    printf("ptz h%ld v%ld ок, %.2f с, %.0f полушагов/с\n", k[0], k[1], el, el > 0 ? (k[0] + k[1]) / el : 0);
     return 0;
 }

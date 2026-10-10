@@ -346,3 +346,12 @@ uart-logger на Pi можно остановить (нечего слушать
   RelativeLeft/GotoHome — все 200, мотор ходит. На камере: nc pid 1992, живой conf переключён на port=8082; всё в RAM.
 - Ждёт владельца: Onvifer → вручную IP 192.168.30.53, порт 8082, admin + ONVIF-пароль; потом `tools/p1-put.sh` onvif.tgz
   onvif-ptz.sh onvif-serve.sh onvif.conf.tpl autorun.sh (через `!`); рестарт HA для «Камеры».
+
+### 10.10 11:06 — Onvifer: nc → tcpserve, скорость из слайдера, диагональ
+
+- Владелец пробовал Onvifer с 10:52: запросы дошли, мотор ехал (ptz.lock + процесс ptz между Move и Stop). «Класс! Почти все работает!»
+- busybox `nc -ll -p 8082 -e` после десятка соединений завис: родитель pid 1992 в D (`_do_fork`), vfork-ребёнок в `futex_wait_queue_me`, 4 CLOSE_WAIT. `kill -9` ребёнка оживляет, но ненадёжно → свой `tcpserve` (tools/onvif/tcpserve.c, static musl через zig, 13.5 КБ): accept → fork → exec PROG со stdin/stdout на сокете, SIGCHLD игнорируется. На камере с 10:59, 12 параллельных curl + GetCapabilities/GetProfiles/GetStatus — все 200, зависших детей нет. autorun.sh копирует и запускает `tcpserve 8082 /tmp/onvif-serve.sh`.
+- Слайдер «PTZ чувствительность» Onvifer шлёт скорость 0.2/0.5/1.0 (и 0.001–0.007 — вероятно минимум). Раньше игнорировалась. Теперь onvif-ptz.sh: us = 2000/s в [2000..20000] (1.0 — как было, 0.2 — в 5 раз медленнее).
+- Диагональные стрелки: OSS зовёт move_x и move_y двумя system() подряд, второй упирался в замок. Теперь первый вызов пишет ось в `/tmp/ptz.lock/h|v`, ждёт 100 мс вторую, и один `ptz hv + N + M us` ведёт обе оси вперемежку (шаговые линии 44–47 общие, селекты 80/16 переключаются на каждом полушаге; каждая ось вдвое медленнее). ptz.c: режим `hv`, selects оба открыты, off() гасит оба. Проверено на заглушке GPIO на Pi и на камере (MoveDiag → `ptz hv + 4300 + 800 10000`, MoveLeft 0.5 → `ptz h + 4300 4000`, Stop снимает замок). Качество диагонали на глаз — проверяет владелец.
+- `tools/onvif/soap-test.py MoveDiag` добавлен. Всё в RAM на камере; на p1 ещё не положено.
+- Ждёт владельца: `tools/p1-put.sh onvif.tgz onvif-ptz.sh onvif-serve.sh tcpserve ptz onvif.conf.tpl autorun.sh`; перезапуск HA.

@@ -21,6 +21,7 @@ OPS = {
  "GetNodes": ("ptz_service", '<tptz:GetNodes xmlns:tptz="http://www.onvif.org/ver20/ptz/wsdl"/>', True),
  "GetStatus": ("ptz_service", '<tptz:GetStatus xmlns:tptz="http://www.onvif.org/ver20/ptz/wsdl"><tptz:ProfileToken>Profile_0</tptz:ProfileToken></tptz:GetStatus>', True),
  "MoveLeft": ("ptz_service", '<tptz:ContinuousMove xmlns:tptz="http://www.onvif.org/ver20/ptz/wsdl"><tptz:ProfileToken>Profile_0</tptz:ProfileToken><tptz:Velocity><tt:PanTilt xmlns:tt="http://www.onvif.org/ver10/schema" x="-0.5" y="0"/></tptz:Velocity></tptz:ContinuousMove>', True),
+ "MoveDiag": ("ptz_service", '<tptz:ContinuousMove xmlns:tptz="http://www.onvif.org/ver20/ptz/wsdl"><tptz:ProfileToken>Profile_0</tptz:ProfileToken><tptz:Velocity><tt:PanTilt xmlns:tt="http://www.onvif.org/ver10/schema" x="-0.2" y="0.2"/></tptz:Velocity></tptz:ContinuousMove>', True),
  "MoveUp": ("ptz_service", '<tptz:ContinuousMove xmlns:tptz="http://www.onvif.org/ver20/ptz/wsdl"><tptz:ProfileToken>Profile_0</tptz:ProfileToken><tptz:Velocity><tt:PanTilt xmlns:tt="http://www.onvif.org/ver10/schema" x="0" y="0.5"/></tptz:Velocity></tptz:ContinuousMove>', True),
  "Stop": ("ptz_service", '<tptz:Stop xmlns:tptz="http://www.onvif.org/ver20/ptz/wsdl"><tptz:ProfileToken>Profile_0</tptz:ProfileToken><tptz:PanTilt>true</tptz:PanTilt><tptz:Zoom>true</tptz:Zoom></tptz:Stop>', True),
  "GetNode": ("ptz_service", '<tptz:GetNode xmlns:tptz="http://www.onvif.org/ver20/ptz/wsdl"><tptz:NodeToken>PTZNodeToken</tptz:NodeToken></tptz:GetNode>', True),
