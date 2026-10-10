@@ -30,7 +30,9 @@ sed -e '/^video1:/,/^[a-z]/ s/enabled: false/enabled: true/' \
     -e '/^nightMode:/,/^[a-z]/ { s/lightMonitor: false/lightMonitor: true/; s/^  colorToGray: true/  colorToGray: true\n  irCutPin1: 78\n  irCutPin2: 79\n  backlightPin: 52/ }' \
     -e '/^audio:/,/^[a-z]/ { s/enabled: false/enabled: true/; s/outputEnabled: false/outputEnabled: true/; s/  volume: 30/  volume: 70/; s/outputVolume: 30/outputVolume: 60/ }' /etc/majestic.yaml > /tmp/m.yaml
 grep -A2 '^watchdog:' /tmp/m.yaml
-mountpoint -q /etc/majestic.yaml || mount --bind /tmp/m.yaml /etc/majestic.yaml
+# 11.10: в NOR /etc — tmpfs (rw) → обычная копия, иначе /api/v1/set не сохраняет (rename на bind-mount = EBUSY, «Configuration not saved»).
+# /etc только для чтения (загрузка с карты) → bind-mount, как раньше.
+mountpoint -q /etc/majestic.yaml || cp /tmp/m.yaml /etc/majestic.yaml 2>/dev/null || mount --bind /tmp/m.yaml /etc/majestic.yaml
 # 28.09 18:40: majestic непрерывно (~10/с) печатает в консоль "[MI ERR] … vpe0-out0-1 … mma fail" (3-й буфер 0x2fd000 не влезает
 # в mma_heap) — на UART 115200 это ~2 КБ/с и load ~9. Консоль только до KERN_ERR (уровень 4 режет флуд: замер +100 Б/с); EMERG/panic видны.
 # 10.10 04:5x: OSD с датой/временем (шаблон по умолчанию %d.%m.%Y %H:%M:%S), время — NTP со шлюза (autorun.sh); /etc — tmpfs,
