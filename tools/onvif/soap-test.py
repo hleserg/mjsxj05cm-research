@@ -21,6 +21,10 @@ OPS = {
  "MoveLeft": ("ptz_service", '<tptz:ContinuousMove xmlns:tptz="http://www.onvif.org/ver20/ptz/wsdl"><tptz:ProfileToken>Profile_0</tptz:ProfileToken><tptz:Velocity><tt:PanTilt xmlns:tt="http://www.onvif.org/ver10/schema" x="-0.5" y="0"/></tptz:Velocity></tptz:ContinuousMove>', True),
  "MoveUp": ("ptz_service", '<tptz:ContinuousMove xmlns:tptz="http://www.onvif.org/ver20/ptz/wsdl"><tptz:ProfileToken>Profile_0</tptz:ProfileToken><tptz:Velocity><tt:PanTilt xmlns:tt="http://www.onvif.org/ver10/schema" x="0" y="0.5"/></tptz:Velocity></tptz:ContinuousMove>', True),
  "Stop": ("ptz_service", '<tptz:Stop xmlns:tptz="http://www.onvif.org/ver20/ptz/wsdl"><tptz:ProfileToken>Profile_0</tptz:ProfileToken><tptz:PanTilt>true</tptz:PanTilt><tptz:Zoom>true</tptz:Zoom></tptz:Stop>', True),
+ "GetNode": ("ptz_service", '<tptz:GetNode xmlns:tptz="http://www.onvif.org/ver20/ptz/wsdl"><tptz:NodeToken>PTZNodeToken</tptz:NodeToken></tptz:GetNode>', True),
+ "GetConfigurations": ("ptz_service", '<tptz:GetConfigurations xmlns:tptz="http://www.onvif.org/ver20/ptz/wsdl"/>', True),
+ "GetConfigurationOptions": ("ptz_service", '<tptz:GetConfigurationOptions xmlns:tptz="http://www.onvif.org/ver20/ptz/wsdl"><tptz:ConfigurationToken>PTZCfgToken</tptz:ConfigurationToken></tptz:GetConfigurationOptions>', True),
+ "RelativeLeft": ("ptz_service", '<tptz:RelativeMove xmlns:tptz="http://www.onvif.org/ver20/ptz/wsdl"><tptz:ProfileToken>Profile_0</tptz:ProfileToken><tptz:Translation><tt:PanTilt xmlns:tt="http://www.onvif.org/ver10/schema" x="-0.1" y="0"/></tptz:Translation></tptz:RelativeMove>', True),
  "GotoHome": ("ptz_service", '<tptz:GotoHomePosition xmlns:tptz="http://www.onvif.org/ver20/ptz/wsdl"><tptz:ProfileToken>Profile_0</tptz:ProfileToken></tptz:GotoHomePosition>', True),
 }
 for op in sys.argv[1:]:
@@ -33,3 +37,4 @@ for op in sys.argv[1:]:
     xaddr = re.findall(r"(?:XAddr|Uri)>([^<]+)<", d)
     print(f"{op}: {r.status} {len(d)}B {dt:.2f}s | {' '.join(xaddr[:4]) if xaddr else short[:160]}")
     if "Fault" in d and r.status != 200: print("   ", short[:300])
+    if os.environ.get("RAW"): print(d)

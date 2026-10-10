@@ -13,6 +13,13 @@ case "$1" in
   moving) [ -d /tmp/ptz.lock ] && echo 1 || echo 0; exit 0 ;;   # is_moving для GetStatus
   pos)   echo 0,0,0; exit 0 ;;   # get_position: позицию не считаем (ponytail); без обеих команд GetStatus = Fault NoStatus
   home)  A=home ;;
+  rel)   # RelativeMove dx dy (GenericSpace -1..1): 1.0 = 180° по горизонтали / 48° по вертикали.
+         # ponytail: масштаб на глаз, подкрутить 2050/350 если шаг в Onvifer велик/мал. x<0 = влево = h+, y>0 = вверх = v+
+         H=$(awk -v d="$2" 'BEGIN{s=-d*2050; if(s<0){s=-s;printf "- %d",s}else printf "+ %d",s}')
+         V=$(awk -v d="$3" 'BEGIN{s=d*350;   if(s<0){s=-s;printf "- %d",s}else printf "+ %d",s}')
+         mkdir /tmp/ptz.lock 2>/dev/null || exit 0
+         ( trap 'rmdir /tmp/ptz.lock' EXIT; [ "${H#* }" != 0 ] && /tmp/ptz h $H; [ "${V#* }" != 0 ] && /tmp/ptz v $V ) </dev/null >/dev/null 2>&1 &
+         exit 0 ;;
   *)     exit 0 ;;
 esac
 mkdir /tmp/ptz.lock 2>/dev/null || exit 0

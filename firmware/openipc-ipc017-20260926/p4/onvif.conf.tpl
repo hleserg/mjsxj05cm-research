@@ -53,3 +53,4 @@ move_up=/tmp/onvif-ptz.sh up %f
 move_down=/tmp/onvif-ptz.sh down %f
 move_stop=/tmp/onvif-ptz.sh stop %s
 goto_home_position=/tmp/onvif-ptz.sh home
+jump_to_rel=/tmp/onvif-ptz.sh rel %f %f %f

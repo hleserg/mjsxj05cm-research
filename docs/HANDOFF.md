@@ -319,3 +319,15 @@ uart-logger на Pi можно остановить (нечего слушать
   live-видео и PTZ не затронуты. Если мешает — в conf.tpl убрать `snapurl` или настроить majestic на admin (не трогать без владельца).
 - `events_service` в GetCapabilities объявлен, но не выложен (404) — PTZ не влияет; при жалобе клиента добавить симлинк +
   `events_service_files` в onvif.tgz.
+
+## 10.10 10:24 — Onvifer: «движение не работает» → добавлен RelativeMove, на камере логгер запросов
+
+- Владелец: в Onvifer движение не работает. С Pi всё отвечало; RelativeMove отвечал 500 (ActionFailed -3): у onvif_simple_server
+  нет `jump_to_rel`. Добавил: conf.tpl `jump_to_rel=/tmp/onvif-ptz.sh rel %f %f %f`, в onvif-ptz.sh подкоманда `rel dx dy`
+  (1.0 = 180° пан / 48° тилт, awk, под тем же замком). Проверено на камере: мотор едет, замок снимается. В RAM уже стоит.
+- На камере (RAM) симлинки сервисов заменены обёртками: `bin/<svc>` — жёсткие ссылки на бинарник, обёртка пишет
+  `/tmp/onvif/req.log` (время, REMOTE_ADDR, сервис, len) и `/tmp/onvif/body.log` (тела через tee). Всё из Home приходит
+  как 192.168.30.1 (NAT Home→Cam на роутере) — телефон от Pi по IP не отличить, только по времени. После отладки обёртки
+  уйдут при перезагрузке (autorun ставит симлинки). Лог не коммитить: в телах WS-Security digest.
+- soap-test.py: добавлены GetNode/GetConfigurations/GetConfigurationOptions/RelativeLeft, `RAW=1` печатает тело ответа.
+- Ждёт: владелец повторяет попытку в Onvifer → читать req.log/body.log (какие операции, какие ответы).
