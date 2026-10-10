@@ -13,6 +13,15 @@ printf '#!/bin/sh\nexec %s -m ziglang ar "$@"\n' "$PY" > zigar; chmod 755 zigcc 
 cd onvif_simple_server
 grep -q cgi-bin/onvif device_service.c || sed -i 's#/onvif/#/cgi-bin/onvif/#g' device_service.c fault.c events_service.c events_service_files/GetEventProperties_1.xml events_service_files/GetEventProperties_3.xml
 sed -i 's#"/etc/onvif_simple_server.conf"#"/tmp/onvif/onvif_simple_server.conf"#' onvif_simple_server.c
+# Зума у камеры нет, а шаблоны OSS заявляют ZoomSpaces/ZoomLimits → Onvifer рисует кнопки зума и слайдер. Вырезаем все *Zoom*-элементы.
+python3 - <<'PYEOF'
+import re, glob
+for f in glob.glob('*_service_files/*.xml'):
+    s = open(f).read()
+    t = re.sub(r'[ \t]*<tt:(\w*Zoom\w*)(\s[^>]*[^/>])?>.*?</tt:\1>\n?', '', s, flags=re.S)   # парные
+    t = re.sub(r'[ \t]*<tt:\w*Zoom\w*\b[^>]*?/>\n?', '', t, flags=re.S)                     # самозакрытые (и многострочные)
+    if t != s: open(f, 'w').write(t)
+PYEOF
 [ -f extras/mbedtls/library/libmbedcrypto.a ] || { [ -d extras/mbedtls ] || git clone -q -b v2.28.8 --depth 1 https://github.com/Mbed-TLS/mbedtls.git extras/mbedtls
   make -s -C extras/mbedtls/library CC=$Z AR=$A CFLAGS="-Os -fPIC" libmbedcrypto.a; }
 [ -f extras/zlib/libz.a ] || { [ -d extras/zlib ] || git clone -q -b v1.3.1 --depth 1 https://github.com/madler/zlib.git extras/zlib

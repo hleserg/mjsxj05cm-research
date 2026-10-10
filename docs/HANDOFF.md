@@ -355,3 +355,12 @@ uart-logger на Pi можно остановить (нечего слушать
 - Диагональные стрелки: OSS зовёт move_x и move_y двумя system() подряд, второй упирался в замок. Теперь первый вызов пишет ось в `/tmp/ptz.lock/h|v`, ждёт 100 мс вторую, и один `ptz hv + N + M us` ведёт обе оси вперемежку (шаговые линии 44–47 общие, селекты 80/16 переключаются на каждом полушаге; каждая ось вдвое медленнее). ptz.c: режим `hv`, selects оба открыты, off() гасит оба. Проверено на заглушке GPIO на Pi и на камере (MoveDiag → `ptz hv + 4300 + 800 10000`, MoveLeft 0.5 → `ptz h + 4300 4000`, Stop снимает замок). Качество диагонали на глаз — проверяет владелец.
 - `tools/onvif/soap-test.py MoveDiag` добавлен. Всё в RAM на камере; на p1 ещё не положено.
 - Ждёт владельца: `tools/p1-put.sh onvif.tgz onvif-ptz.sh onvif-serve.sh tcpserve ptz onvif.conf.tpl autorun.sh`; перезапуск HA.
+
+### 10.10 11:12 — Onvifer: зум убран из ONVIF
+
+Владелец: «А зум нафига в онвифере включён когда его нет?» — вопрос ко мне: шаблоны onvif_simple_server заявляют ZoomSpaces/ZoomLimits/`<tt:Zoom>` в GetNode(s), GetConfiguration(s), GetConfigurationOptions, GetPresets, GetStatus и media GetProfile(s)_PTZ, поэтому Onvifer рисует кнопки зума и слайдер «Увеличение».
+
+- `tools/onvif/build.sh`: после sed-патчей добавлен шаг python `re.sub` — вырезает все `<tt:*Zoom*>` элементы (парные и самозакрытые) из `*_service_files/*.xml` перед упаковкой. Diff в клоне: 11 файлов, −143 строки, только Zoom.
+- Проверено на камере (RAM, `/tmp/www/cgi-bin/onvif`): GetNodes/GetConfigurationOptions/GetProfiles/GetStatus/GetCapabilities — 200, `grep -ci zoom` = 0; MoveDiag → `left 0.2` + `up 0.2` → Stop, lock снят.
+- Onvifer покажет изменения после повторного чтения камеры (удалить/добавить камеру или перезапустить приложение).
+- На p1 — тот же список `tools/p1-put.sh onvif.tgz onvif-ptz.sh onvif-serve.sh tcpserve ptz onvif.conf.tpl autorun.sh`.
