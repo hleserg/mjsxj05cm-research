@@ -192,3 +192,8 @@ STATUS.md, FULL-CONTROL-ACCEPTANCE.md.
 - Правка: `p4/cam-up.sh` — одна строка `-e 's/^rtsp:/rtsp:\n  audioCodec: aac/'` в цепочке sed; busybox-sed на камере проверен во временный файл. Живой apply через /api/v1/config НЕ делал (возможный рестарт пайплайна = MMA-утечка).
 - `tools/p1-put.sh cam-up.sh` — классификатор отказал (Remote Shell Writes) → владелец через `!`: p1-put + `sync; reboot -f`. init4.sh берёт autorun/cam-up с p1 (без карты — /opt/p1: NOR-копия теперь тоже устарела, вместе с onvif-password — в тот же STOP при пересборке).
 - Проверка после ребута: `ffprobe rtsp://…/stream=0` без параметров → `aac,audio`; в HA при тишине — перезагрузить интеграцию ONVIF один раз. Frigate `preset-record-generic-audio-aac` перекодирует aac→aac — работает, `…-audio-copy` сэкономил бы CPU (конфиг владельца, не трогаю).
+
+## 10.10 04:35 — звук: ИСПРАВЛЕНО, камера отдаёт AAC
+- 04:3x владелец через `!`: `tools/p1-put.sh cam-up.sh` (md5 ff611bb8 совпал) + `sync; reboot -f`. Камера поднялась за ~1 мин, `/etc/majestic.yaml:64 audioCodec: aac`.
+- ffprobe `stream=0` без параметров: `h264 / aac 8000`. go2rtc во Frigate переподключился сам: main и sub — `MPEG4-GENERIC/8000` (AAC), fps 5.3. HA (HLS) теперь получает AAC — владельцу глянуть карточку; при тишине один раз перезагрузить интеграцию ONVIF.
+- Не срочно (в STOP при пересборке NOR): `/opt/p1/cam-up.sh` и `/opt/p1/onvif-password.txt` в rootfs NOR устарели (нужны только без карты).
