@@ -5,7 +5,7 @@
 # Менять без пересборки squashfs: на камере `mount -o remount,rw /tmp/p1; cp …; sync; mount -o remount,ro /tmp/p1`.
 mkdir /tmp/autorun.lock 2>/dev/null || { echo "autorun уже был"; exit 0; }
 D=$(dirname "$0")
-cp "$D"/cam-up.sh "$D"/ptz.sh "$D"/demo.sh "$D"/ptz /tmp/ 2>/dev/null; chmod 755 /tmp/*.sh /tmp/ptz
+cp "$D"/cam-up.sh "$D"/ptz.sh "$D"/demo.sh "$D"/dance.sh "$D"/ptz /tmp/ 2>/dev/null; chmod 755 /tmp/*.sh /tmp/ptz
 gw=$(ip route | awk '/^default/{print $3}')
 # время: роутер отдаёт NTP, pool.ntp.org из LAN не резолвится (28.09). Разово со сдвигом, затем демон от дрейфа.
 [ -n "$gw" ] && { timeout 15 ntpd -n -q -p "$gw"; ntpd -p "$gw"; }
