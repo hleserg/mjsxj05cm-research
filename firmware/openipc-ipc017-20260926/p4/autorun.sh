@@ -12,4 +12,5 @@ gw=$(ip route | awk '/^default/{print $3}')
 date
 sh /tmp/cam-up.sh
 sh /tmp/ptz.sh init
+[ -x /tmp/ptz ] && sh /tmp/ptz.sh home   # центрирование как у стока; только бинарником (шеллом это 4 минуты)
 echo AUTORUN_done
