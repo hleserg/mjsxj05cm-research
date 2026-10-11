@@ -498,3 +498,8 @@ uart-logger на Pi можно остановить (нечего слушать
 
 - cam-up.sh на p1: md5 e254d923 сверен на камере, p1 смонтирован ro.
 - HA: сущности ночного режима в реестре (input_select, input_number, sensor night/night_source/day_threshold, автоматизация). Сенсоров железа ещё нет — нужен reload «REST entities» после второго scp.
+
+## 11.10 10:45 — HA перезапущен мной (разрешение владельца)
+
+- `docker compose restart homeassistant` по OPERATIONS.md. Все 6 сенсоров железа зарегистрированы, значения из recorder: 72°C, 9.8 МБ, −45 dBm, 3.0x, 87%, старт majestic 21:41Z. Ошибок по mjsxj05cm в логе нет.
+- Чужое, не от рестарта: Frigate-интеграция HA получает 401 с 04:53 (41 раз до рестарта).
