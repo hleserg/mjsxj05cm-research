@@ -478,3 +478,12 @@ uart-logger на Pi можно остановить (нечего слушать
 - Щелчок при переключении — ИК-фильтр (соленоид на H-мосте 78/79). Включение автомата из ручного режима один раз передёргивает фильтр (ircut_drives_day +1).
 - HA (`tools/ha/mjsxj05cm_ptz.yaml`): кнопки ночь/день заменены на `input_select.mjsxj05cm_night_mode` (авто/ночь/день) + `input_number` порогов ночи (1–64, 1 = по экспозиции) и дня (2–32). Сенсоры с /metrics: `sensor.mjsxj05cm_night` (день/ночь), `_night_source` (авто/вручную), `_day_threshold`. Автоматизация `mjsxj05cm_night_apply` срабатывает на расхождение камеры с выбранным (в т.ч. после ребута камеры, cam-up.sh поднимает авто) и на смену порогов. Шаблоны прогнаны Jinja2 на живых метриках (8 случаев триггера).
 - Владельцу: p1-put нового cam-up.sh (e254d923, копия вместо bind-mount; ребут не нужен) и деплой HA (secrets + scp + check_config + перечитать YAML).
+
+## 11.10 ~02:55 — ресурсы и телеметрия (замер, только чтение)
+
+- SoC sstar,infinity6, 1 ядро Cortex-A7, 800 МГц (макс 1.2), NPU нет.
+- CPU с загрузки: idle 60%, sys 21%, softirq 11% (сеть), user 7%. AAC ≈6%, Opus ≈2.6% CPU. loadavg 8.6 — это D-state потоки ядра (miLodUdiskTask), не нагрузка.
+- RAM 36 МБ, available 12 МБ; MMA 24 МБ, свободно 5.6 МБ. Карта p4 86% (записи).
+- /metrics уже отдаёт: node_hwmon_temp_celsius (67), wifi_rssi/snr/bitrate, node_memory_*, node_cpu_seconds, isp_again/exposure (≈освещённость), records_storage_used_percent, venc*_frames, rtsp/webrtc клиенты.
+- В majestic есть детектор уровня звука (audio_gate_opens_total, ONVIF IsSoundDetected), классификатора нет («gate only; this build has no classifier»). Ключ конфига не найден.
+- Вывод: распознавание — на bigpc (Frigate audio / ухо Мары), на камере только телеметрия и порог громкости.
