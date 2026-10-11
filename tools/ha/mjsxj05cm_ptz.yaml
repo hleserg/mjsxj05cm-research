@@ -145,3 +145,40 @@ rest:
         value_template: >-
           {%- set t = value | regex_findall('(?m)^night_day_threshold_milli ([0-9]+)') %}
           {{ (t[0] | int / 1000) if t else 'нет' }}
+      - name: mjsxj05cm_temperature
+        unique_id: mjsxj05cm_temperature
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "°C"
+        value_template: "{{ value | regex_findall('(?m)^node_hwmon_temp_celsius ([0-9.]+)') | first }}"
+      - name: mjsxj05cm_ram_free
+        unique_id: mjsxj05cm_ram_free
+        icon: mdi:memory
+        state_class: measurement
+        unit_of_measurement: "MB"
+        value_template: "{{ ((value | regex_findall('(?m)^node_memory_MemAvailable_bytes ([0-9]+)') | first | int) / 1048576) | round(1) }}"
+      - name: mjsxj05cm_wifi_rssi
+        unique_id: mjsxj05cm_wifi_rssi
+        device_class: signal_strength
+        state_class: measurement
+        unit_of_measurement: "dBm"
+        value_template: "{{ value | regex_findall('(?m)^wifi_rssi_dbm (-?[0-9]+)') | first }}"
+      - name: mjsxj05cm_gain
+        unique_id: mjsxj05cm_gain
+        icon: mdi:brightness-6
+        state_class: measurement
+        unit_of_measurement: "x"
+        value_template: >-
+          {%- set a = value | regex_findall('(?m)^isp_again ([0-9]+)') | first | int %}
+          {%- set d = value | regex_findall('(?m)^isp_dgain ([0-9]+)') | first | int %}
+          {{ (a * d / 1048576) | round(1) }}
+      - name: mjsxj05cm_card_used
+        unique_id: mjsxj05cm_card_used
+        icon: mdi:sd
+        state_class: measurement
+        unit_of_measurement: "%"
+        value_template: "{{ value | regex_findall('(?m)^records_storage_used_percent ([0-9]+)') | first }}"
+      - name: mjsxj05cm_majestic_started
+        unique_id: mjsxj05cm_majestic_started
+        device_class: timestamp
+        value_template: "{{ (value | regex_findall('(?m)^app_boot_time_seconds ([0-9]+)') | first | int) | timestamp_custom('%Y-%m-%dT%H:%M:%S+00:00', false) }}"

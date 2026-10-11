@@ -487,3 +487,9 @@ uart-logger на Pi можно остановить (нечего слушать
 - /metrics уже отдаёт: node_hwmon_temp_celsius (67), wifi_rssi/snr/bitrate, node_memory_*, node_cpu_seconds, isp_again/exposure (≈освещённость), records_storage_used_percent, venc*_frames, rtsp/webrtc клиенты.
 - В majestic есть детектор уровня звука (audio_gate_opens_total, ONVIF IsSoundDetected), классификатора нет («gate only; this build has no classifier»). Ключ конфига не найден.
 - Вывод: распознавание — на bigpc (Frigate audio / ухо Мары), на камере только телеметрия и порог громкости.
+
+## 11.10 ~03:10 — сенсоры железа в HA (в git, не задеплоено)
+
+- В `rest:` /metrics добавлены: temperature, ram_free, wifi_rssi, gain (again×dgain), card_used, majestic_started. Шаблоны проверены на живых метриках (72°C, 9.9 МБ, −37 dBm, 1.5x, 88%).
+- Дашборд: карточка «Камера — железо». md5 пакета 58e5b349…, дашборда 1c147a19….
+- CPU% не сделан: в метриках только накопительные секунды, нужна производная.

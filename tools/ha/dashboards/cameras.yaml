@@ -77,6 +77,22 @@ views:
               - entity: input_number.mjsxj05cm_day_gain
                 name: День при усилении, x
 
+          - type: entities
+            title: Камера — железо
+            entities:
+              - entity: sensor.mjsxj05cm_temperature
+                name: Температура чипа
+              - entity: sensor.mjsxj05cm_ram_free
+                name: Свободно RAM
+              - entity: sensor.mjsxj05cm_wifi_rssi
+                name: Wi-Fi
+              - entity: sensor.mjsxj05cm_gain
+                name: Усиление сенсора (темнота)
+              - entity: sensor.mjsxj05cm_card_used
+                name: Карта занята
+              - entity: sensor.mjsxj05cm_majestic_started
+                name: majestic запущен
+
       - type: picture-entity
         entity: camera.ifeel
         name: ifeel
